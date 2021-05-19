@@ -132,7 +132,7 @@ stmt* make_stmt (int type, var *var, expr *expr,
 %right NOT
 
 %%
-
+ 
 prog	: bools stmt	{ program_stmts = $2; }
 
 bools	: BOOL declist ';'	{ program_vars = $2; }

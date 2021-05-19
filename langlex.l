@@ -1,9 +1,8 @@
 %option noyywrap
 
-DIG	[0-9]
-
 %%
 
+"//".*\n  { } /*Ignore comments*/
 "bool"	{ return BOOL; }
 "while"	{ return WHILE; }
 "do"	{ return DO; }
