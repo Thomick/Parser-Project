@@ -44,17 +44,6 @@ typedef struct stmt	// command
 	varlist *list;
 } stmt;
 
-typedef struct alt
-{
-	struct expr* expr;
-	struct stmt* stmt;
-} alt;
-
-typedef struct altlist
-{
-	struct alt* alt;
-	struct altlist* next;
-} altlist;
 /****************************************************************************/
 /* All data pertaining to the programme are accessible from these two vars. */
 
@@ -144,12 +133,16 @@ stmt* make_stmt (int type, var *var, expr *expr,
 
 %%
  
-prog	: glob proclist	{ program_stmts = $2; }
+prog	: globs proclist | proclist	{ program_stmts = $2; }
 
-bools	: BOOL declist ';'	{ program_vars = $2; }
+globs	: VAR globdeclist ';' globs	{ program_vars = $2; }
+        | VAR globdeclist ';'
 
-declist	: IDENT			{ $$ = make_ident($1); }
-	| declist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+globdeclist	: IDENT			{ $$ = make_ident($1); }
+		| globdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+
+proclist	: PROC loclist stmtlist END
+	 	| PROC stmtlist END
 
 stmt	: assign
 	| stmt ';' stmt	
