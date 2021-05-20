@@ -165,6 +165,8 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 %left OR XOR
 %left AND
 %right NOT
+%left SUPERIOR INFERIOR EQUAL
+%left MINUS PLUS
 
 %%
  
