@@ -14,7 +14,6 @@ void yyerror(char *s)
 
 /***************************************************************************/
 /* Data structures for storing a programme.                                */
-
 typedef struct var	// a variable
 {
 	char *name;
@@ -43,7 +42,6 @@ typedef struct stmt	// command
 	var *var;
 	expr *expr;
 	struct stmt *left, *right;
-	struct varlist *list;
 	struct altlist *altlist;
 } stmt;
 
@@ -52,6 +50,26 @@ typedef struct stmtlist
 	struct stmt* stmt;
 	struct stmtlist* next;
 } stmtlist;
+
+typedef struct proc
+{
+	var *locs;
+	stmt *stmt;
+	struct proc *next;
+} proc;
+
+typedef struct reach
+{
+	expr *expr;
+	struct reach *next;
+} reach;
+	
+typedef struct prog 
+{
+	var *globs;
+	proc *proc;
+	reach *reach;
+} prog;
 
 /****************************************************************************/
 /* All data pertaining to the programme are accessible from these two vars. */
@@ -133,11 +151,17 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 	var *v;
 	expr *e;
 	stmt *s;
+	prog *pg;
+	proc *pc;
+	reach *r;
 }
 
-%type <v> declist
+%type <v> globs globdeclist locs locdeclist 
 %type <e> expr
 %type <s> stmt assign
+%type <pg> prog
+%type <pc> proclist
+%type <r> reachlist
 
 %token DO OD IF FI ELSE SKIP PROC END VAR REACH BREAK ASSIGN GUARD ARROW OR AND XOR NOT PLUS MINUS EQUAL INFERIOR SUPERIOR
 %token <i> IDENT
