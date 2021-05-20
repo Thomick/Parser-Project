@@ -185,7 +185,7 @@ reach* make_reach(expr *expr, reach *next)
 	int in;
 }
 
-%type <v> globs globdeclist locs locdeclist 
+%type <v> dec declist
 %type <e> expr
 %type <s> stmt assign
 %type <a> altlist altlist_wo_else
@@ -206,26 +206,20 @@ reach* make_reach(expr *expr, reach *next)
 
 %%
  
-prog	: globs proclist reachlist	{ make_prog($2,$3); program_vars = $1; }
-     	| proclist reachlist		{ make_prog($1,$2); } 
-	| globs proclist		{ make_prog($2,NULL); program_vars = $1; }
+prog	: dec proclist reachlist	{ printf("globs"); make_prog($2,$3); program_vars = $1; }
+     	| proclist reachlist		{ printf("noglobs"); make_prog($1,$2); } 
+	| dec proclist		{ printf("globs");make_prog($2,NULL); program_vars = $1; }
 
-globs	: VAR globdeclist ';' globs	{ $$ = concat_var($2,$4); }
-        | VAR globdeclist ';'		{ $$ = $2; }
+dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
+        | VAR declist ';'		{ $$ = $2; }
 
-globdeclist	: IDENT			{ $$ = make_ident($1); }
-		| globdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+declist	: IDENT			{ $$ = make_ident($1); }
+		| declist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
 
-proclist	: PROC IDENT locs stmt END proclist	{ $$ = make_proc($3,$4,$6); }
+proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6); }
 	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5); }
-		| PROC IDENT locs stmt END	{ $$ = make_proc($3,$4,NULL); }
+		| PROC IDENT dec stmt END	{ $$ = make_proc($3,$4,NULL); }
 	 	| PROC IDENT stmt END		{ $$ = make_proc(NULL,$3,NULL); }
-
-locs	: VAR locdeclist ';' locs	{ $$ = concat_var($2,$4); }
-        | VAR locdeclist ';'		{ $$ = $2; }
-
-locdeclist	: IDENT			{ $$ = make_ident($1); }
-		| locdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
 
 stmt	: assign
 	| stmt ';' stmt	
@@ -293,7 +287,7 @@ stmt* choose_alt (altlist* l) // TODO
 	int cnt = 0;
 	stmt* elsestmt = NULL;
 	altlist* cur = l;
-	while(cur->next != NULL){
+	while(cur->next){
 		if(cur->type == ELSE)
 			elsestmt = cur->stmt;
 		else if(eval(cur->expr)){
@@ -308,7 +302,7 @@ stmt* choose_alt (altlist* l) // TODO
 	if (cnt > 0){
 		int rnd = rand()%cnt;
 		stmtlist* cur = list;
-		while(cur->next != NULL && rnd > 0){
+		while(cur->next && rnd > 0){
 			cur = cur->next;
 			rnd = rnd - 1;
 		}
@@ -320,7 +314,7 @@ stmt* choose_alt (altlist* l) // TODO
 int count_proc (proc* proc){
 	int cnt = 0;
 	struct proc* cur = proc;
-	while(cur != NULL){
+	while(cur){
 		cur = cur->next;
 		cnt = cnt + 1;
 	}
@@ -329,7 +323,7 @@ int count_proc (proc* proc){
 
 proc* get_proc(proc* proc, int n){
 	struct proc* cur = proc;
-	while(cur->next != NULL && n > 0){
+	while(cur->next && n > 0){
 		cur = cur->next;
 		n = n - 1;
 	}
@@ -338,10 +332,10 @@ proc* get_proc(proc* proc, int n){
 
 proc* remove_proc(proc* proc, int n){
 	struct proc* prec = get_proc(proc,n);
-	if (prec != NULL){
+	if (prec){
 		if(n==0)
 			return proc->next;
-		if(prec->next != NULL)
+		if(prec->next)
 			prec->next = prec->next->next;
 	}
 	return proc;
@@ -350,7 +344,7 @@ proc* remove_proc(proc* proc, int n){
 void exec_one_step(proc* proc)
 {
 	stmt* tmp = NULL;
-	if(proc->stmt == NULL)
+	if(!proc->stmt)
 		return;
 	switch(proc->stmt->type)
 	{
@@ -378,7 +372,7 @@ void exec_one_step(proc* proc)
 			tmp = proc->stmt;
 			while(tmp->type != DO){
 				tmp = tmp->next;
-				if(tmp == NULL){
+				if(!tmp){
 					proc->stmt = NULL;
 					return;
 				}
@@ -404,7 +398,7 @@ int execute (prog* prog){
 		proc* p = get_proc(prog->proc,rnd);
 		exec_one_step(p);
 		eval_reach(prog->reach);
-		if(p->stmt == NULL)
+		if(!p->stmt)
 			prog->proc = remove_proc(prog->proc,rnd);
 		cnt = count_proc(prog->proc);
 	}
