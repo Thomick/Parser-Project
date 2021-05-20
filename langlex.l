@@ -24,7 +24,7 @@
 "!"	{ return NOT; }
 "+"	{ return PLUS; }
 "-"	{ return MINUS; }
-"=="	{ return EQUAL; }
+"==" {return EQUAL; }
 "<"	{ return INFERIOR; }
 ">"	{ return SUPERIOR; }
 

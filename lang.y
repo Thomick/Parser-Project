@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
+
 
 int yylex();
 
@@ -97,6 +99,7 @@ var* find_ident (char *s)
 	return v;
 }
 
+<<<<<<< HEAD
 var* concat_var (var *var1, var *var2)
 {
 	var *v = var1;
@@ -105,6 +108,8 @@ var* concat_var (var *var1, var *var2)
 	return var1;
 }
 
+=======
+>>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 expr* make_expr (int type, var *var, expr *left, expr *right)
 {
 	expr *e = malloc(sizeof(expr));
@@ -116,7 +121,7 @@ expr* make_expr (int type, var *var, expr *left, expr *right)
 }
 
 stmt* make_stmt (int type, var *var, expr *expr,
-			stmt *left, stmt *right, varlist *list, altlist *altlist)
+			stmt *left, stmt *right, altlist *altlist)
 {
 	stmt *s = malloc(sizeof(stmt));
 	s->type = type;
@@ -124,7 +129,6 @@ stmt* make_stmt (int type, var *var, expr *expr,
 	s->expr = expr;
 	s->left = left;
 	s->right = right;
-	s->list = list;
 	s->altlist = altlist;
 	return s;
 }
@@ -185,12 +189,20 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 %left OR XOR
 %left AND
 %right NOT
+%left SUPERIOR INFERIOR EQUAL
+%left MINUS PLUS
 
 %%
  
+<<<<<<< HEAD
 prog	: globs proclist reachlist	{ make_prog($2,$3); program_vars = $1; }
      	| proclist reachlist		{ make_prog($1,$2); } 
 	| globs proclist		{ make_prog($2,NULL); program_vars = $1; }
+=======
+prog	: globs proclist reachlist 
+     	| proclist reachlist 
+	| globs proclist
+>>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 
 globs	: VAR globdeclist ';' globs	{ $$ = concat_var($2,$4); }
         | VAR globdeclist ';'		{ $$ = $2; }
@@ -211,23 +223,23 @@ locdeclist	: IDENT			{ $$ = make_ident($1); }
 
 stmt	: assign
 	| stmt ';' stmt	
-		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL,NULL); }
+		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL); }
 	| DO altlist OD
-		{ $$ = make_stmt(LOOP,NULL,NULL,NULL,NULL,NULL,$2); }
-	| IF altlist FI {$$ = make_stmt(BRANCH,NULL,NULL,NULL,NULL,NULL,$2);}
-	| BREAK			{$$ = make_stmt(BREAK,NULL,NULL,NULL,NULL,NULL,NULL);}
-	| SKIP			{$$ = make_stmt(SKIP,NULL,NULL,NULL,NULL,NULL,NULL);}
+		{ $$ = make_stmt(DO,NULL,NULL,NULL,NULL,$2); }
+	| IF altlist FI {$$ = make_stmt(IF,NULL,NULL,NULL,NULL,$2);}
+	| BREAK			{$$ = make_stmt(BREAK,NULL,NULL,NULL,NULL,NULL);}
+	| SKIP			{$$ = make_stmt(SKIP,NULL,NULL,NULL,NULL,NULL);}
 
-altlist	: GUARD expr ARROW stmt altlist {$$ = make_altlist(EXPR,$2,$4)->next = $5;}
-	| GUARD expr ARROW stmt	{$$ = make_altlist(EXPR,$2,$4);}
-	| GUARD ELSE ARROW stmt altlist_wo_else {$$ = make_altlist(ELSE,$2,$4)->next = $5;}
-	| GUARD ELSE ARROW stmt {$$ = make_altlist(ELSE,$2,$4);}
+altlist	: GUARD expr ARROW stmt altlist {$$ = make_altlist(IF,$2,$4)->next = $5;}
+	| GUARD expr ARROW stmt	{$$ = make_altlist(IF,$2,$4);}
+	| GUARD ELSE ARROW stmt altlist_wo_else {$$ = make_altlist(ELSE,NULL,$4)->next = $5;}
+	| GUARD ELSE ARROW stmt {$$ = make_altlist(ELSE,NULL,$4);}
 
-altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(EXPR,$2,$4)->next = $5;}
-		| GUARD expr ARROW stmt {$$ = make_altlist(EXPR,$2,$4);}
+altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(IF,$2,$4)->next = $5;}
+		| GUARD expr ARROW stmt {$$ = make_altlist(IF,$2,$4);}
 
 assign	: IDENT ASSIGN expr
-		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL,NULL); }
+		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL); }
 
 expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 	| expr XOR expr	{ $$ = make_expr(XOR,NULL,$1,$3); }
@@ -287,7 +299,7 @@ stmt* choose_alt (altlist* l) // TODO
 	}
 	if (cnt > 0){
 		int rnd = rand()%cnt;
-		cur = list;
+		stmtlist* cur = list;
 		while(cur->next != NULL && rnd > 0){
 			cur = cur->next;
 			rnd = rnd - 1;
@@ -299,7 +311,7 @@ stmt* choose_alt (altlist* l) // TODO
 
 int execute (stmt *s, int inloop)
 {
-	if(stmt == NULL)
+	if(s == NULL)
 		return 0;
 	switch(s->type)
 	{
@@ -307,14 +319,23 @@ int execute (stmt *s, int inloop)
 			s->var->value = eval(s->expr);
 			break;
 		case ';':
-			execute(s->left,inloop);
-			execute(s->right,inloop);
+			if(execute(s->left,inloop))
+				execute(s->right,inloop);
 			break;
-		case LOOP:
-			while (execute(choose_alt(s->altlist),true));
+		case DO:
+			while (execute(choose_alt(s->altlist),1));
 			break;
+<<<<<<< HEAD
+=======
+		case IF:
+			execute(choose_alt(s->altlist),inloop);
+			break;
+		case BREAK:
+			if(inloop)
+				return 0;
+>>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 	}
-	return 1
+	return 1;
 }
 
 /****************************************************************************/
@@ -324,5 +345,5 @@ int main (int argc, char **argv)
 	srand(time(NULL));
 	if (argc <= 1) { yyerror("no file specified"); exit(1); }
 	yyin = fopen(argv[1],"r");
-	if (!yyparse()) execute(program_stmts,false);
+	if (!yyparse()) execute(program_stmts,0);
 }
