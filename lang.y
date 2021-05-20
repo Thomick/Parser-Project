@@ -309,7 +309,7 @@ stmt* choose_alt (altlist* l) // TODO
 
 int count_proc (proc* proc){
 	int cnt = 0;
-	proc* cur = proc;
+	struct proc* cur = proc;
 	while(cur != NULL){
 		cur = cur->next;
 		cnt = cnt + 1;
@@ -317,8 +317,8 @@ int count_proc (proc* proc){
 	return cnt;
 }
 
-int get_proc(proc* proc, int n){
-	proc* cur = proc;
+proc* get_proc(proc* proc, int n){
+	struct proc* cur = proc;
 	while(cur->next != NULL && n > 0){
 		cur = cur->next;
 		n = n - 1;
@@ -326,23 +326,26 @@ int get_proc(proc* proc, int n){
 	return cur;
 }
 
-int execute (prog* prog){
-	int cnt = count_proc(prog->proc);
-	while(cnt){
-		int rnd = rand()%cnt;
-		exec_one_step(get_proc(prog->proc));
-		cnt = count_proc(prog->proc);
+proc* remove_proc(proc* proc, int n){
+	struct proc* prec = get_proc(proc,n);
+	if (prec != NULL){
+		if(n==0)
+			return proc->next;
+		if(prec->next != NULL)
+			prec->next = prec->next->next;
 	}
+	return proc;
 }
 
-int exec_one_step(proc* proc)
+void exec_one_step(proc* proc)
 {
-	if(s == NULL)
-		return 0;
+	stmt* tmp = NULL;
+	if(proc->stmt == NULL)
+		return;
 	switch(proc->stmt->type)
 	{
 		case ASSIGN:
-			proc->stmt->var->value = eval(s->expr);
+			proc->stmt->var->value = eval(proc->stmt->expr);
 			proc->stmt = proc->stmt->next;
 			break;
 		case ';':
@@ -352,16 +355,41 @@ int exec_one_step(proc* proc)
 			exec_one_step(proc);
 			break;
 		case DO:
-			choose_alt(s->altlist)->; //WIP
+			tmp = choose_alt(proc->stmt->altlist);
+			tmp->next = proc->stmt;
+			proc->stmt = tmp;
 			break;
 		case IF:
-			execute(choose_alt(s->altlist));
+			tmp = choose_alt(proc->stmt->altlist);
+			tmp->next = proc->stmt->next;
+			proc->stmt = tmp;
 			break;
 		case BREAK:
-			if(inloop)
-				return 0;
+			tmp = proc->stmt;
+			while(tmp->type != DO){
+				tmp = tmp->next;
+				if(tmp == NULL){
+					proc->stmt = NULL;
+					return;
+				}
+			}
+			proc->stmt = tmp->next;
+			break;
+		case SKIP:
+			proc->stmt = proc->stmt->next;
 	}
-	return 1;
+}
+
+int execute (prog* prog){
+	int cnt = count_proc(prog->proc);
+	while(cnt){
+		int rnd = rand()%cnt;
+		proc* p = get_proc(prog->proc,rnd);
+		exec_one_step(p);
+		if(p->stmt == NULL)
+			prog->proc = remove_proc(prog->proc,rnd);
+		cnt = count_proc(prog->proc);
+	}
 }
 
 /****************************************************************************/
