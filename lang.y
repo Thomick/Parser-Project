@@ -155,6 +155,13 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 	return pc;
 }
 
+reach* make_reach(expr *expr, reach *next)
+{
+	reach* r = malloc(sizeof(reach));
+	r->expr = expr;
+	r->next = next;
+}
+
 %}
 
 /****************************************************************************/
