@@ -270,11 +270,16 @@ stmt* choose_alt (altlist* l) // TODO
 		}
 		cur = cur->next;
 	}
-	int rnd = rand()%cnt;
-	cur = list;
-	while(cur->next != NULL && rnd > 0){
-		cur = cur->next;
-	return cur->stmt;
+	if (cnt > 0){
+		int rnd = rand()%cnt;
+		cur = list;
+		while(cur->next != NULL && rnd > 0){
+			cur = cur->next;
+			rnd = rnd - 1;
+		}
+		return cur->stmt;
+	}
+	return elsestmt;
 }
 
 void execute (stmt *s)
