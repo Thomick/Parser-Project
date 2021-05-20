@@ -43,6 +43,7 @@ typedef struct stmt	// command
 	expr *expr;
 	struct stmt *left, *right;
 	struct altlist *altlist;
+	struct stmt *next;
 } stmt;
 
 typedef struct stmtlist
@@ -66,7 +67,6 @@ typedef struct reach
 	
 typedef struct prog 
 {
-	var *globs;
 	proc *proc;
 	reach *reach;
 } prog;
@@ -75,7 +75,7 @@ typedef struct prog
 /* All data pertaining to the programme are accessible from these two vars. */
 
 var *program_vars;
-stmt *program_stmts;
+prog *program;
 
 /****************************************************************************/
 /* Functions for settting up data structures at parse time.                 */
@@ -97,13 +97,12 @@ var* find_ident (char *s)
 	return v;
 }
 
-varlist* make_varlist (char *s)
+var* concat_var (var *var1, var *var2)
 {
-	var *v = find_ident(s);
-	varlist *l = malloc(sizeof(varlist));
-	l->var = v;
-	l->next = NULL;
-	return l;
+	var *v = var1;
+	while (v->next) v = v->next;
+	v->next = var2;
+	return var1;
 }
 
 expr* make_expr (int type, var *var, expr *left, expr *right)
@@ -140,6 +139,21 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 	return a;
 }
 
+void make_prog (proc *proc, reach *reach)
+{
+	program->proc = proc;
+	program->reach = reach;
+}
+
+proc* make_proc (var *locs, stmt *stmt, proc *next)
+{
+	proc* pc = malloc(sizeof(proc));
+	pc->locs = locs;
+	pc->stmt = stmt;
+	pc->next = next;
+	return pc;
+}
+
 %}
 
 /****************************************************************************/
@@ -152,7 +166,6 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 	expr *e;
 	stmt *s;
 	altlist *a;
-	prog *pg;
 	proc *pc;
 	reach *r;
 }
@@ -161,7 +174,6 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 %type <e> expr
 %type <s> stmt assign
 %type <a> altlist altlist_wo_else
-%type <pg> prog
 %type <pc> proclist
 %type <r> reachlist
 
@@ -176,21 +188,23 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 
 %%
  
-prog	: globs proclist reachlist 
-     	| proclist reachlist 
-	| globs proclist	{ program_stmts = $2; }
+prog	: globs proclist reachlist	{ make_prog($2,$3); program_vars = $1; }
+     	| proclist reachlist		{ make_prog($1,$2); } 
+	| globs proclist		{ make_prog($2,NULL); program_vars = $1; }
 
-globs	: VAR globdeclist ';' globs	{ program_vars = $2; }
-        | VAR globdeclist ';'
+globs	: VAR globdeclist ';' globs	{ $$ = concat_var($2,$4); }
+        | VAR globdeclist ';'		{ $$ = $2; }
 
 globdeclist	: IDENT			{ $$ = make_ident($1); }
 		| globdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
 
-proclist	: PROC IDENT locs stmt END
-	 	| PROC IDENT stmt END
+proclist	: PROC IDENT locs stmt END proclist	{ $$ = make_proc($3,$4,$6); }
+	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5); }
+		| PROC IDENT locs stmt END	{ $$ = make_proc($3,$4,NULL); }
+	 	| PROC IDENT stmt END		{ $$ = make_proc(NULL,$3,NULL); }
 
-locs	: VAR locdeclist ';' locs	{ program_vars = $2; }
-        | VAR locdeclist ';'
+locs	: VAR locdeclist ';' locs	{ $$ = concat_var($2,$4); }
+        | VAR locdeclist ';'		{ $$ = $2; }
 
 locdeclist	: IDENT			{ $$ = make_ident($1); }
 		| locdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
@@ -225,11 +239,9 @@ expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 	| expr EQUAL expr	{ $$ = make_expr(EQUAL,NULL,$1,$3); }
 	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,NULL,$1,$3); }
 	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,NULL,$1,$3); }
-	
-//	| '(' expr ')'	{ $$ = $2; }
 
-reachlist	: REACH expr reachlist
-	  	| REACH expr
+reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
+	  	| REACH expr		{ $$ = make_reach($2,NULL); }
 
 %%
 
@@ -300,10 +312,6 @@ int execute (stmt *s, int inloop)
 			break;
 		case LOOP:
 			while (execute(choose_alt(s->altlist),true));
-			break;
-		case PRINT: 
-			print_vars(s->list);
-			puts("");
 			break;
 	}
 	return 1
