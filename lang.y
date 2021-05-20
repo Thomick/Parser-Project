@@ -238,6 +238,11 @@ int eval (expr *e)
 		case OR: return eval(e->left) || eval(e->right);
 		case AND: return eval(e->left) && eval(e->right);
 		case NOT: return !eval(e->left);
+		case PLUS: return eval(e->left)+eval(e->right);
+		case MINUS: return eval(e->left)-eval(e->right);
+		case EQUAL: return (eval(e->left)==eval(e->right)) ? 1 : 0;
+		case INFERIOR: return (eval(e->left)<eval(e->right)) ? 1 : 0;
+		case SUPERIOR: return (eval(e->left)>eval(e->right)) ? 1 : 0;
 		case 0: return e->var->value;
 	}
 }
