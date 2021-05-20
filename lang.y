@@ -163,12 +163,16 @@ altlist* make_altlist (expr *expr, stmt *stmt)
 
 %%
  
-prog	: glob proclist	{ program_stmts = $2; }
+prog	: globs proclist | proclist	{ program_stmts = $2; }
 
-bools	: BOOL declist ';'	{ program_vars = $2; }
+globs	: VAR globdeclist ';' globs	{ program_vars = $2; }
+        | VAR globdeclist ';'
 
-declist	: IDENT			{ $$ = make_ident($1); }
-	| declist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+globdeclist	: IDENT			{ $$ = make_ident($1); }
+		| globdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+
+proclist	: PROC loclist stmtlist END
+	 	| PROC stmtlist END
 
 stmt	: assign
 	| stmt ';' stmt	
