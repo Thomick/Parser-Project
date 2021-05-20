@@ -35,15 +35,29 @@ typedef struct expr	// boolean expression
 	struct expr *left, *right;
 } expr;
 
+
+
+typedef struct alt
+{
+	struct expr* expr;
+	struct stmt* stmt;
+} alt;
+
+typedef struct altlist
+{
+	struct alt* alt;
+	struct altlist* next;
+} altlist;
+
 typedef struct stmt	// command
 {
-	int type;	// ASSIGN, ';', WHILE, PRINT
+	int type;	// ASSIGN, ';', LOOP, BRANCH, PRINT
 	var *var;
 	expr *expr;
 	struct stmt *left, *right;
-	varlist *list;
+	struct varlist *list;
+	struct altlist *altlist;
 } stmt;
-
 /****************************************************************************/
 /* All data pertaining to the programme are accessible from these two vars. */
 
@@ -90,7 +104,7 @@ expr* make_expr (int type, var *var, expr *left, expr *right)
 }
 
 stmt* make_stmt (int type, var *var, expr *expr,
-			stmt *left, stmt *right, varlist *list)
+			stmt *left, stmt *right, varlist *list, altlist *altlist)
 {
 	stmt *s = malloc(sizeof(stmt));
 	s->type = type;
@@ -99,6 +113,7 @@ stmt* make_stmt (int type, var *var, expr *expr,
 	s->left = left;
 	s->right = right;
 	s->list = list;
+	s->altlist = altlist;
 	return s;
 }
 
@@ -185,7 +200,7 @@ altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else
 		| GUARD expr ARROW stmt
 
 assign	: IDENT ASSIGN expr
-		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL); }
+		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL,NULL); }
 
 expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 	| expr XOR expr	{ $$ = make_expr(XOR,NULL,$1,$3); }
@@ -202,6 +217,8 @@ expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 
 reachlist	: REACH expr reachlist
 	  	| REACH expr
+
+
 
 %%
 
