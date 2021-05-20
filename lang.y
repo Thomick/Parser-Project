@@ -22,20 +22,12 @@ typedef struct var	// a variable
 	struct var *next;
 } var;
 
-typedef struct varlist	// variable reference (used for print statement)
-{
-	struct var *var;
-	struct varlist *next;
-} varlist;
-
 typedef struct expr	// boolean expression
 {
 	int type;	// TRUE, FALSE, OR, AND, NOT, 0 (variable)
 	var *var;
 	struct expr *left, *right;
 } expr;
-
-
 
 typedef struct alt
 {
@@ -148,7 +140,6 @@ altlist* make_altlist (expr *expr, stmt *stmt)
 }
 
 %type <v> declist
-%type <l> varlist
 %type <e> expr
 %type <s> stmt assign
 
