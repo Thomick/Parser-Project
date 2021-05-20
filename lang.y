@@ -1,3 +1,5 @@
+%define parse.error detailed
+
 %{
 
 #include <stdio.h>
@@ -63,6 +65,7 @@ typedef struct proc
 
 typedef struct reach
 {
+	int reached;
 	expr *expr;
 	struct reach *next;
 } reach;
@@ -158,6 +161,7 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 reach* make_reach(expr *expr, reach *next)
 {
 	reach* r = malloc(sizeof(reach));
+	r->reached = 0;
 	r->expr = expr;
 	r->next = next;
 }
@@ -380,12 +384,20 @@ void exec_one_step(proc* proc)
 	}
 }
 
+void eval_reach(reach* r){
+	if(r==NULL)
+		return;
+	if(eval(r->expr))
+		r->reached = 1;
+}
+
 int execute (prog* prog){
 	int cnt = count_proc(prog->proc);
 	while(cnt){
 		int rnd = rand()%cnt;
 		proc* p = get_proc(prog->proc,rnd);
 		exec_one_step(p);
+		eval_reach(prog->reach);
 		if(p->stmt == NULL)
 			prog->proc = remove_proc(prog->proc,rnd);
 		cnt = count_proc(prog->proc);
@@ -399,5 +411,7 @@ int main (int argc, char **argv)
 	srand(time(NULL));
 	if (argc <= 1) { yyerror("no file specified"); exit(1); }
 	yyin = fopen(argv[1],"r");
-	if (!yyparse()) execute(program);
+	if (!yyparse()) {
+		execute(program);
+	}
 }
