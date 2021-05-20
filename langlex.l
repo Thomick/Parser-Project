@@ -4,12 +4,15 @@
 
 "//".*\n  { } /*Ignore comments*/
 "bool"	{ return BOOL; }
-"while"	{ return WHILE; }
 "do"	{ return DO; }
 "od"	{ return OD; }
-"print"	{ return PRINT; }
-"true"	{ return TRUE; }
-"false"	{ return FALSE; }
+"if"	{ return IF; }
+"fi"	{ return FI; }
+"skip"	{ return SKIP; }
+"proc"	{ return PROC; }
+"end"	{ return END; }
+"var"	{ return VAR; }
+
 
 ":="	{ return ASSIGN; }
 "^"	{ return XOR; }

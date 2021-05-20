@@ -148,7 +148,7 @@ altlist* make_altlist (expr *expr, stmt *stmt)
 %type <e> expr
 %type <s> stmt assign
 
-%token BOOL WHILE DO OD ASSIGN PRINT OR AND XOR NOT TRUE FALSE
+%token DO OD IF FI ELSE SKIP PROC END VAR REACH BREAK ASSIGN GUARD ARROW OR AND XOR NOT PLUS MINUS EQUAL INFERIOR SUPERIOR
 %token <i> IDENT
 
 %left ';'
@@ -159,7 +159,7 @@ altlist* make_altlist (expr *expr, stmt *stmt)
 
 %%
  
-prog	: bools stmt	{ program_stmts = $2; }
+prog	: glob proclist	{ program_stmts = $2; }
 
 bools	: BOOL declist ';'	{ program_vars = $2; }
 
