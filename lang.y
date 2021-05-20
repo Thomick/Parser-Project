@@ -58,7 +58,7 @@ typedef struct stmtlist
 
 typedef struct proc
 {
-	var locs;
+	var *locs;
 	stmt *stmt;
 	struct proc *next;
 } proc;
@@ -163,11 +163,17 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 	var *v;
 	expr *e;
 	stmt *s;
+	prog *pg;
+	proc *pc;
+	reach *r;
 }
 
-%type <v> declist
+%type <v> globs globdeclist locs locdeclist 
 %type <e> expr
 %type <s> stmt assign
+%type <pg> prog
+%type <pc> proclist
+%type <r> reachlist
 
 %token DO OD IF FI ELSE SKIP PROC END VAR REACH BREAK ASSIGN GUARD ARROW OR AND XOR NOT PLUS MINUS EQUAL INFERIOR SUPERIOR
 %token <i> IDENT
