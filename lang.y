@@ -168,7 +168,9 @@ altlist* make_altlist (expr *expr, stmt *stmt)
 
 %%
  
-prog	: globs proclist | proclist	{ program_stmts = $2; }
+prog	: globs proclist reachlist 
+     	| proclist reachlist 
+	| globs proclist	{ program_stmts = $2; }
 
 globs	: VAR globdeclist ';' globs	{ program_vars = $2; }
         | VAR globdeclist ';'
@@ -176,31 +178,50 @@ globs	: VAR globdeclist ';' globs	{ program_vars = $2; }
 globdeclist	: IDENT			{ $$ = make_ident($1); }
 		| globdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
 
-proclist	: PROC loclist stmtlist END
-	 	| PROC stmtlist END
+proclist	: PROC IDENT locs stmt END
+	 	| PROC IDENT stmt END
+
+locs	: VAR locdeclist ';' locs	{ program_vars = $2; }
+        | VAR locdeclist ';'
+
+locdeclist	: IDENT			{ $$ = make_ident($1); }
+		| locdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
 
 stmt	: assign
 	| stmt ';' stmt	
-		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL,NULL); }
-	| WHILE expr DO stmt OD
-		{ $$ = make_stmt(WHILE,NULL,$2,$4,NULL,NULL,NULL); }
-	| PRINT varlist
-		{ $$ = make_stmt(PRINT,NULL,NULL,NULL,NULL,$2,NULL); }
+		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL); }
+	| DO guardlist OD
+		{ $$ = make_stmt(WHILE,NULL,$2,$4,NULL,NULL); }
+	| IF altlist FI
+	| BREAK
+	| SKIP
+
+altlist	: GUARD expr ARROW stmt altlist
+	| GUARD expr ARROW stmt
+	| GUARD ELSE ARROW stmt altlist_wo_else
+	| GUARD ELSE ARROW stmt
+
+altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else
+		| GUARD expr ARROW stmt
 
 assign	: IDENT ASSIGN expr
 		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL,NULL); }
-
-varlist	: IDENT			{ $$ = make_varlist($1); }
-	| varlist ',' IDENT	{ ($$ = make_varlist($3))->next = $1; }
 
 expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 	| expr XOR expr	{ $$ = make_expr(XOR,NULL,$1,$3); }
 	| expr OR expr	{ $$ = make_expr(OR,NULL,$1,$3); }
 	| expr AND expr	{ $$ = make_expr(AND,NULL,$1,$3); }
 	| NOT expr	{ $$ = make_expr(NOT,NULL,$2,NULL); }
-	| TRUE		{ $$ = make_expr(TRUE,NULL,NULL,NULL); }
-	| FALSE		{ $$ = make_expr(FALSE,NULL,NULL,NULL); }
-	| '(' expr ')'	{ $$ = $2; }
+	| expr PLUS expr
+	| expr MINUS expr
+	| expr EQUAL expr
+	| expr INFERIOR expr
+	| expr SUPERIOR expr
+	
+//	| '(' expr ')'	{ $$ = $2; }
+
+reachlist	: REACH expr reachlist
+	  	| REACH expr
 
 
 
