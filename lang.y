@@ -35,14 +35,7 @@ typedef struct expr	// boolean expression
 	struct expr *left, *right;
 } expr;
 
-typedef struct stmt	// command
-{
-	int type;	// ASSIGN, ';', WHILE, PRINT
-	var *var;
-	expr *expr;
-	struct stmt *left, *right;
-	varlist *list;
-} stmt;
+
 
 typedef struct alt
 {
@@ -55,6 +48,16 @@ typedef struct altlist
 	struct alt* alt;
 	struct altlist* next;
 } altlist;
+
+typedef struct stmt	// command
+{
+	int type;	// ASSIGN, ';', LOOP, BRANCH, PRINT
+	var *var;
+	expr *expr;
+	struct stmt *left, *right;
+	struct varlist *list;
+	struct altlist *altlist;
+} stmt;
 /****************************************************************************/
 /* All data pertaining to the programme are accessible from these two vars. */
 
@@ -101,7 +104,7 @@ expr* make_expr (int type, var *var, expr *left, expr *right)
 }
 
 stmt* make_stmt (int type, var *var, expr *expr,
-			stmt *left, stmt *right, varlist *list)
+			stmt *left, stmt *right, varlist *list, altlist *altlist)
 {
 	stmt *s = malloc(sizeof(stmt));
 	s->type = type;
@@ -110,6 +113,7 @@ stmt* make_stmt (int type, var *var, expr *expr,
 	s->left = left;
 	s->right = right;
 	s->list = list;
+	s->altlist = altlist;
 	return s;
 }
 
@@ -168,14 +172,14 @@ declist	: IDENT			{ $$ = make_ident($1); }
 
 stmt	: assign
 	| stmt ';' stmt	
-		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL); }
+		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL,NULL); }
 	| WHILE expr DO stmt OD
-		{ $$ = make_stmt(WHILE,NULL,$2,$4,NULL,NULL); }
+		{ $$ = make_stmt(WHILE,NULL,$2,$4,NULL,NULL,NULL); }
 	| PRINT varlist
-		{ $$ = make_stmt(PRINT,NULL,NULL,NULL,NULL,$2); }
+		{ $$ = make_stmt(PRINT,NULL,NULL,NULL,NULL,$2,NULL); }
 
 assign	: IDENT ASSIGN expr
-		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL); }
+		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL,NULL); }
 
 varlist	: IDENT			{ $$ = make_varlist($1); }
 	| varlist ',' IDENT	{ ($$ = make_varlist($3))->next = $1; }
@@ -188,6 +192,8 @@ expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 	| TRUE		{ $$ = make_expr(TRUE,NULL,NULL,NULL); }
 	| FALSE		{ $$ = make_expr(FALSE,NULL,NULL,NULL); }
 	| '(' expr ')'	{ $$ = $2; }
+
+
 
 %%
 
