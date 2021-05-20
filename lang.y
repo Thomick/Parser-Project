@@ -102,6 +102,21 @@ stmt* make_stmt (int type, var *var, expr *expr,
 	return s;
 }
 
+alt* make_alt (expr *expr, stmt *stmt)
+{
+	alt *a = malloc(sizeof(alt));
+	a->expr = expr;
+	a->stmt = stmt;
+	return a;
+}
+
+altlist* make_altlist (expr *expr, stmt *stmt)
+{
+	altlist* a = malloc(sizeof(altlist));
+	a->alt = make_alt(expr,stmt);
+	a->next = NULL;
+	return a;
+}
 
 %}
 
