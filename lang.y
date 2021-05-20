@@ -30,6 +30,7 @@ typedef struct expr	// boolean expression
 
 typedef struct alt
 {
+	int type;  // EXPR, ELSE
 	struct expr* expr;
 	struct stmt* stmt;
 } alt;
@@ -134,18 +135,19 @@ stmt* make_stmt (int type, var *var, expr *expr,
 	return s;
 }
 
-alt* make_alt (expr *expr, stmt *stmt)
+alt* make_alt (int type, expr *expr, stmt *stmt)
 {
 	alt *a = malloc(sizeof(alt));
+	a->type = type;
 	a->expr = expr;
 	a->stmt = stmt;
 	return a;
 }
 
-altlist* make_altlist (expr *expr, stmt *stmt)
+altlist* make_altlist (int type,expr *expr, stmt *stmt)
 {
 	altlist* a = malloc(sizeof(altlist));
-	a->alt = make_alt(expr,stmt);
+	a->alt = make_alt(type,expr,stmt);
 	a->next = NULL;
 	return a;
 }
@@ -206,13 +208,13 @@ stmt	: assign
 	| BREAK			{$$ = make_stmt(BREAK,NULL,NULL,NULL,NULL,NULL,NULL);}
 	| SKIP			{$$ = make_stmt(SKIP,NULL,NULL,NULL,NULL,NULL,NULL);}
 
-altlist	: GUARD expr ARROW stmt altlist
-	| GUARD expr ARROW stmt
-	| GUARD ELSE ARROW stmt altlist_wo_else
-	| GUARD ELSE ARROW stmt
+altlist	: GUARD expr ARROW stmt altlist {$$ = make_altlist(EXPR,$2,$4)->next = $5;}
+	| GUARD expr ARROW stmt	{$$ = make_altlist(EXPR,$2,$4);}
+	| GUARD ELSE ARROW stmt altlist_wo_else {$$ = make_altlist(ELSE,$2,$4)->next = $5;}
+	| GUARD ELSE ARROW stmt {$$ = make_altlist(ELSE,$2,$4);}
 
-altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else
-		| GUARD expr ARROW stmt
+altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(EXPR,$2,$4)->next = $5;}
+		| GUARD expr ARROW stmt {$$ = make_altlist(EXPR,$2,$4);}
 
 assign	: IDENT ASSIGN expr
 		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL,NULL); }
