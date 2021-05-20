@@ -280,25 +280,28 @@ stmt* choose_alt (altlist* l) // TODO
 	return elsestmt;
 }
 
-void execute (stmt *s)
+int execute (stmt *s, int inloop)
 {
+	if(stmt == NULL)
+		return 0;
 	switch(s->type)
 	{
 		case ASSIGN:
 			s->var->value = eval(s->expr);
 			break;
 		case ';':
-			execute(s->left);
-			execute(s->right);
+			execute(s->left,inloop);
+			execute(s->right,inloop);
 			break;
 		case LOOP:
-			while (eval(s->expr)) execute(s->left);
+			while (execute(choose_alt(s->altlist),true));
 			break;
 		case PRINT: 
 			print_vars(s->list);
 			puts("");
 			break;
 	}
+	return 1
 }
 
 /****************************************************************************/
@@ -308,5 +311,5 @@ int main (int argc, char **argv)
 	srand(time(NULL));
 	if (argc <= 1) { yyerror("no file specified"); exit(1); }
 	yyin = fopen(argv[1],"r");
-	if (!yyparse()) execute(program_stmts);
+	if (!yyparse()) execute(program_stmts,false);
 }
