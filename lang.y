@@ -99,7 +99,6 @@ var* find_ident (char *s)
 	return v;
 }
 
-<<<<<<< HEAD
 var* concat_var (var *var1, var *var2)
 {
 	var *v = var1;
@@ -108,8 +107,6 @@ var* concat_var (var *var1, var *var2)
 	return var1;
 }
 
-=======
->>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 expr* make_expr (int type, var *var, expr *left, expr *right)
 {
 	expr *e = malloc(sizeof(expr));
@@ -194,15 +191,9 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 
 %%
  
-<<<<<<< HEAD
 prog	: globs proclist reachlist	{ make_prog($2,$3); program_vars = $1; }
      	| proclist reachlist		{ make_prog($1,$2); } 
 	| globs proclist		{ make_prog($2,NULL); program_vars = $1; }
-=======
-prog	: globs proclist reachlist 
-     	| proclist reachlist 
-	| globs proclist
->>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 
 globs	: VAR globdeclist ';' globs	{ $$ = concat_var($2,$4); }
         | VAR globdeclist ';'		{ $$ = $2; }
@@ -309,31 +300,59 @@ stmt* choose_alt (altlist* l) // TODO
 	return elsestmt;
 }
 
-int execute (stmt *s, int inloop)
+int count_proc (proc* proc){
+	int cnt = 0;
+	proc* cur = proc;
+	while(cur != NULL){
+		cur = cur->next;
+		cnt = cnt + 1;
+	}
+	return cnt;
+}
+
+int get_proc(proc* proc, int n){
+	proc* cur = proc;
+	while(cur->next != NULL && n > 0){
+		cur = cur->next;
+		n = n - 1;
+	}
+	return cur;
+}
+
+int execute (prog* prog){
+	int cnt = count_proc(prog->proc);
+	while(cnt){
+		int rnd = rand()%cnt;
+		exec_one_step(get_proc(prog->proc));
+		cnt = count_proc(prog->proc);
+	}
+}
+
+int exec_one_step(proc* proc)
 {
 	if(s == NULL)
 		return 0;
-	switch(s->type)
+	switch(proc->stmt->type)
 	{
 		case ASSIGN:
-			s->var->value = eval(s->expr);
+			proc->stmt->var->value = eval(s->expr);
+			proc->stmt = proc->stmt->next;
 			break;
 		case ';':
-			if(execute(s->left,inloop))
-				execute(s->right,inloop);
+			proc->stmt->right->next = proc->stmt->next;
+			proc->stmt->left->next = proc->stmt->right;
+			proc->stmt = proc->stmt->left;
+			exec_one_step(proc);
 			break;
 		case DO:
-			while (execute(choose_alt(s->altlist),1));
+			choose_alt(s->altlist)->; //WIP
 			break;
-<<<<<<< HEAD
-=======
 		case IF:
-			execute(choose_alt(s->altlist),inloop);
+			execute(choose_alt(s->altlist));
 			break;
 		case BREAK:
 			if(inloop)
 				return 0;
->>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 	}
 	return 1;
 }
@@ -345,5 +364,5 @@ int main (int argc, char **argv)
 	srand(time(NULL));
 	if (argc <= 1) { yyerror("no file specified"); exit(1); }
 	yyin = fopen(argv[1],"r");
-	if (!yyparse()) execute(program_stmts,0);
+	if (!yyparse()) execute(program);
 }
