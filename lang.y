@@ -181,12 +181,12 @@ locdeclist	: IDENT			{ $$ = make_ident($1); }
 
 stmt	: assign
 	| stmt ';' stmt	
-		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL); }
-	| DO guardlist OD
-		{ $$ = make_stmt(WHILE,NULL,$2,$4,NULL,NULL); }
-	| IF altlist FI
-	| BREAK
-	| SKIP
+		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL,NULL); }
+	| DO altlist OD
+		{ $$ = make_stmt(LOOP,NULL,NULL,NULL,NULL,NULL,$2); }
+	| IF altlist FI {$$ = make_stmt(BRANCH,NULL,NULL,NULL,NULL,NULL,$2);}
+	| BREAK			{$$ = make_stmt(BREAK,NULL,NULL,NULL,NULL,NULL,NULL);}
+	| SKIP			{$$ = make_stmt(SKIP,NULL,NULL,NULL,NULL,NULL,NULL);}
 
 altlist	: GUARD expr ARROW stmt altlist
 	| GUARD expr ARROW stmt
