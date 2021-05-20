@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <time.h>
 
 int yylex();
 
@@ -143,7 +143,6 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 %union {
 	char *i;
 	var *v;
-	varlist *l;
 	expr *e;
 	stmt *s;
 }
@@ -218,8 +217,6 @@ expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 reachlist	: REACH expr reachlist
 	  	| REACH expr
 
-
-
 %%
 
 #include "langlex.c"
@@ -239,13 +236,6 @@ int eval (expr *e)
 		case NOT: return !eval(e->left);
 		case 0: return e->var->value;
 	}
-}
-
-void print_vars (varlist *l)
-{
-	if (!l) return;
-	print_vars(l->next);
-	printf("%s = %c  ", l->var->name, l->var->value? 'T' : 'F');
 }
 
 stmt* choose_alt (altlist) // TODO
@@ -281,6 +271,7 @@ void execute (stmt *s)
 
 int main (int argc, char **argv)
 {
+	srand(time(NULL));
 	if (argc <= 1) { yyerror("no file specified"); exit(1); }
 	yyin = fopen(argv[1],"r");
 	if (!yyparse()) execute(program_stmts);
