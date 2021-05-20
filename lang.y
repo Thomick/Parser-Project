@@ -287,12 +287,18 @@ int execute (stmt *s, int inloop)
 			s->var->value = eval(s->expr);
 			break;
 		case ';':
-			execute(s->left,inloop);
-			execute(s->right,inloop);
+			if(execute(s->left,inloop))
+				execute(s->right,inloop);
 			break;
 		case DO:
 			while (execute(choose_alt(s->altlist),1));
 			break;
+		case IF:
+			execute(choose_alt(s->altlist),inloop);
+			break;
+		case BREAK:
+			if(inloop)
+				return 0;
 	}
 	return 1;
 }
