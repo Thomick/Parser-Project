@@ -99,7 +99,6 @@ var* find_ident (char *s)
 	return v;
 }
 
-<<<<<<< HEAD
 var* concat_var (var *var1, var *var2)
 {
 	var *v = var1;
@@ -108,8 +107,6 @@ var* concat_var (var *var1, var *var2)
 	return var1;
 }
 
-=======
->>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 expr* make_expr (int type, var *var, expr *left, expr *right)
 {
 	expr *e = malloc(sizeof(expr));
@@ -158,6 +155,13 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 	return pc;
 }
 
+reach* make_reach(expr *expr, reach *next)
+{
+	reach* r = malloc(sizeof(reach));
+	r->expr = expr;
+	r->next = next;
+}
+
 %}
 
 /****************************************************************************/
@@ -194,15 +198,9 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 
 %%
  
-<<<<<<< HEAD
 prog	: globs proclist reachlist	{ make_prog($2,$3); program_vars = $1; }
      	| proclist reachlist		{ make_prog($1,$2); } 
 	| globs proclist		{ make_prog($2,NULL); program_vars = $1; }
-=======
-prog	: globs proclist reachlist 
-     	| proclist reachlist 
-	| globs proclist
->>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 
 globs	: VAR globdeclist ';' globs	{ $$ = concat_var($2,$4); }
         | VAR globdeclist ';'		{ $$ = $2; }
@@ -325,15 +323,12 @@ int execute (stmt *s, int inloop)
 		case DO:
 			while (execute(choose_alt(s->altlist),1));
 			break;
-<<<<<<< HEAD
-=======
 		case IF:
 			execute(choose_alt(s->altlist),inloop);
 			break;
 		case BREAK:
 			if(inloop)
 				return 0;
->>>>>>> 452d77e1326d63c2ceee8cc793924b294cddfeae
 	}
 	return 1;
 }
