@@ -29,16 +29,11 @@ typedef struct expr	// boolean expression
 	struct expr *left, *right;
 } expr;
 
-typedef struct alt
+typedef struct altlist
 {
 	int type;  // EXPR, ELSE
 	struct expr* expr;
 	struct stmt* stmt;
-} alt;
-
-typedef struct altlist
-{
-	struct alt* alt;
 	struct altlist* next;
 } altlist;
 
@@ -117,19 +112,12 @@ stmt* make_stmt (int type, var *var, expr *expr,
 	return s;
 }
 
-alt* make_alt (int type, expr *expr, stmt *stmt)
-{
-	alt *a = malloc(sizeof(alt));
-	a->type = type;
-	a->expr = expr;
-	a->stmt = stmt;
-	return a;
-}
-
 altlist* make_altlist (int type,expr *expr, stmt *stmt)
 {
 	altlist* a = malloc(sizeof(altlist));
-	a->alt = make_alt(type,expr,stmt);
+	a->type = type;
+	a->expr = expr;
+	a->stmt = stmt;
 	a->next = NULL;
 	return a;
 }
@@ -238,12 +226,29 @@ int eval (expr *e)
 	}
 }
 
-stmt* choose_alt (altlist) // TODO
+stmt* choose_alt (altlist* l) // TODO
 {
-	stmtlist* list = malloc(sizeof(stmtlist));
+	stmtlist* list = NULL;
 	int cnt = 0;
 	stmt* elsestmt = NULL;
-	return list->stmt;
+	altlist* cur = l;
+	while(cur->next != NULL){
+		if(cur->type == ELSE)
+			elsestmt = cur->stmt;
+		else if(eval(cur->expr)){
+			stmtlist* tmp = malloc(sizeof(stmtlist));
+			tmp->stmt = cur->stmt;
+			tmp->next = list;
+			list = tmp;
+			cnt = cnt + 1;
+		}
+		cur = cur->next;
+	}
+	int rnd = rand()%cnt;
+	cur = list;
+	while(cur->next != NULL && rnd > 0){
+		cur = cur->next;
+	return cur->stmt;
 }
 
 void execute (stmt *s)
