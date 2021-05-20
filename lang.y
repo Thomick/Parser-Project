@@ -151,6 +151,7 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 	var *v;
 	expr *e;
 	stmt *s;
+	altlist *a;
 	prog *pg;
 	proc *pc;
 	reach *r;
@@ -159,6 +160,7 @@ altlist* make_altlist (int type,expr *expr, stmt *stmt)
 %type <v> globs globdeclist locs locdeclist 
 %type <e> expr
 %type <s> stmt assign
+%type <a> altlist altlist_wo_else
 %type <pg> prog
 %type <pc> proclist
 %type <r> reachlist
@@ -218,11 +220,11 @@ expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL); }
 	| expr OR expr	{ $$ = make_expr(OR,NULL,$1,$3); }
 	| expr AND expr	{ $$ = make_expr(AND,NULL,$1,$3); }
 	| NOT expr	{ $$ = make_expr(NOT,NULL,$2,NULL); }
-	| expr PLUS expr
-	| expr MINUS expr
-	| expr EQUAL expr
-	| expr INFERIOR expr
-	| expr SUPERIOR expr
+	| expr PLUS expr	{ $$ = make_expr(PLUS,NULL,$1,$3); }
+	| expr MINUS expr	{ $$ = make_expr(MINUS,NULL,$1,$3); }
+	| expr EQUAL expr	{ $$ = make_expr(EQUAL,NULL,$1,$3); }
+	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,NULL,$1,$3); }
+	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,NULL,$1,$3); }
 	
 //	| '(' expr ')'	{ $$ = $2; }
 
