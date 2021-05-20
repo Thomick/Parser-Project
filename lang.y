@@ -44,6 +44,17 @@ typedef struct stmt	// command
 	varlist *list;
 } stmt;
 
+typedef struct alt
+{
+	struct expr* expr;
+	struct stmt* stmt;
+} alt;
+
+typedef struct altlist
+{
+	struct alt* alt;
+	struct altlist* next;
+} altlist;
 /****************************************************************************/
 /* All data pertaining to the programme are accessible from these two vars. */
 
