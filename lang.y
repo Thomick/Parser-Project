@@ -50,6 +50,13 @@ typedef struct stmt	// command
 	struct varlist *list;
 	struct altlist *altlist;
 } stmt;
+
+typedef struct stmtlist
+{
+	struct stmt* stmt;
+	struct stmtlist* next;
+} stmtlist;
+
 /****************************************************************************/
 /* All data pertaining to the programme are accessible from these two vars. */
 
@@ -239,6 +246,14 @@ void print_vars (varlist *l)
 	printf("%s = %c  ", l->var->name, l->var->value? 'T' : 'F');
 }
 
+stmt* choose_alt (altlist) // TODO
+{
+	stmtlist* list = malloc(sizeof(stmtlist));
+	int cnt = 0;
+	stmt* elsestmt = NULL;
+	return list->stmt;
+}
+
 void execute (stmt *s)
 {
 	switch(s->type)
@@ -250,7 +265,7 @@ void execute (stmt *s)
 			execute(s->left);
 			execute(s->right);
 			break;
-		case WHILE:
+		case LOOP:
 			while (eval(s->expr)) execute(s->left);
 			break;
 		case PRINT: 
