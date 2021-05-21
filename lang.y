@@ -28,9 +28,9 @@ typedef struct var	// a variable
 typedef struct expr	// boolean expression
 {
 	int type;	// TRUE, FALSE, OR, AND, NOT, 0 (variable)
-	int *val;
 	var *var;
 	struct expr *left, *right;
+	int value;
 } expr;
 
 typedef struct altlist
@@ -111,14 +111,14 @@ var* concat_var (var *var1, var *var2)
 	return var1;
 }
 
-expr* make_expr (int type, int *val, var *var, expr *left, expr *right)
+expr* make_expr (int type,int value, var *var, expr *left, expr *right)
 {
 	expr *e = malloc(sizeof(expr));
 	e->type = type;
-	e->val = val;
 	e->var = var;
 	e->left = left;
 	e->right = right;
+	e->value = value;
 	return e;
 }
 
@@ -176,7 +176,7 @@ reach* make_reach(expr *expr, reach *next)
 
 %union {
 	char *i;
-	int *n;
+	int n;
 	var *v;
 	expr *e;
 	stmt *s;
@@ -185,7 +185,7 @@ reach* make_reach(expr *expr, reach *next)
 	reach *r;
 }
 
-%type <v> globs globdeclist locs locdeclist 
+%type <v> dec declist
 %type <e> expr
 %type <s> stmt assign
 %type <a> altlist altlist_wo_else
@@ -206,26 +206,22 @@ reach* make_reach(expr *expr, reach *next)
 
 %%
  
-prog	: globs proclist reachlist	{ make_prog($2,$3); program_vars = $1; }
-     	| proclist reachlist		{ make_prog($1,$2); } 
-	| globs proclist		{ make_prog($2,NULL); program_vars = $1; }
+prog	: globs proclist reachlist	{ printf("globs"); make_prog($2,$3);  }
+     	| proclist reachlist		{ printf("noglobs"); make_prog($1,$2); } 
+	| globs proclist		{ printf("globs");  make_prog($2,NULL);  }
 
-globs	: VAR globdeclist ';' globs	{ $$ = concat_var($2,$4); }
-        | VAR globdeclist ';'		{ $$ = $2; }
+globs : dec {program_vars = $1;}
 
-globdeclist	: IDENT			{ $$ = make_ident($1); }
-		| globdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
+        | VAR declist ';'		{ $$ = $2; }
 
-proclist	: PROC IDENT locs stmt END proclist	{ $$ = make_proc($3,$4,$6); }
+declist	: IDENT			{ $$ = make_ident($1); }
+		| declist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+
+proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6); }
 	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5); }
-		| PROC IDENT locs stmt END	{ $$ = make_proc($3,$4,NULL); }
+		| PROC IDENT dec stmt END	{ $$ = make_proc($3,$4,NULL); }
 	 	| PROC IDENT stmt END		{ $$ = make_proc(NULL,$3,NULL); }
-
-locs	: VAR locdeclist ';' locs	{ $$ = concat_var($2,$4); }
-        | VAR locdeclist ';'		{ $$ = $2; }
-
-locdeclist	: IDENT			{ $$ = make_ident($1); }
-		| locdeclist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
 
 stmt	: assign
 	| stmt ';' stmt	
@@ -247,17 +243,17 @@ altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(IF,$2
 assign	: IDENT ASSIGN expr
 		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL); }
 
-expr	: IDENT		{ $$ = make_expr(0,NULL,find_ident($1),NULL,NULL); }
-     	| CONSTANT	{ $$ = make_expr(-1,$1,NULL,NULL,NULL); }
-	| expr XOR expr	{ $$ = make_expr(XOR,NULL,NULL,$1,$3); }
-	| expr OR expr	{ $$ = make_expr(OR,NULL,NULL,$1,$3); }
-	| expr AND expr	{ $$ = make_expr(AND,NULL,NULL,$1,$3); }
-	| NOT expr	{ $$ = make_expr(NOT,NULL,NULL,$2,NULL); }
-	| expr PLUS expr	{ $$ = make_expr(PLUS,NULL,NULL,$1,$3); }
-	| expr MINUS expr	{ $$ = make_expr(MINUS,NULL,NULL,$1,$3); }
-	| expr EQUAL expr	{ $$ = make_expr(EQUAL,NULL,NULL,$1,$3); }
-	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,NULL,NULL,$1,$3); }
-	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,NULL,NULL,$1,$3); }
+expr	: IDENT		{ $$ = make_expr(0,0,find_ident($1),NULL,NULL); }
+     	| CONSTANT	{ $$ = make_expr(CONSTANT,$1,NULL,NULL,NULL); }
+	| expr XOR expr	{ $$ = make_expr(XOR,0,NULL,$1,$3); }
+	| expr OR expr	{ $$ = make_expr(OR,0,NULL,$1,$3); }
+	| expr AND expr	{ $$ = make_expr(AND,0,NULL,$1,$3); }
+	| NOT expr	{ $$ = make_expr(NOT,0,NULL,$2,NULL); }
+	| expr PLUS expr	{ $$ = make_expr(PLUS,0,NULL,$1,$3); }
+	| expr MINUS expr	{ $$ = make_expr(MINUS,0,NULL,$1,$3); }
+	| expr EQUAL expr	{ $$ = make_expr(EQUAL,0,NULL,$1,$3); }
+	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,0,NULL,$1,$3); }
+	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,0,NULL,$1,$3); }
 
 reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
 	  	| REACH expr		{ $$ = make_reach($2,NULL); }
@@ -282,8 +278,8 @@ int eval (expr *e)
 		case EQUAL: return (eval(e->left)==eval(e->right)) ? 1 : 0;
 		case INFERIOR: return (eval(e->left)<eval(e->right)) ? 1 : 0;
 		case SUPERIOR: return (eval(e->left)>eval(e->right)) ? 1 : 0;
+		case CONSTANT: return e->value;
 		case 0: return e->var->value;
-		case -1: return &(e->val);
 	}
 }
 
@@ -293,7 +289,7 @@ stmt* choose_alt (altlist* l) // TODO
 	int cnt = 0;
 	stmt* elsestmt = NULL;
 	altlist* cur = l;
-	while(cur->next != NULL){
+	while(cur->next){
 		if(cur->type == ELSE)
 			elsestmt = cur->stmt;
 		else if(eval(cur->expr)){
@@ -308,7 +304,7 @@ stmt* choose_alt (altlist* l) // TODO
 	if (cnt > 0){
 		int rnd = rand()%cnt;
 		stmtlist* cur = list;
-		while(cur->next != NULL && rnd > 0){
+		while(cur->next && rnd > 0){
 			cur = cur->next;
 			rnd = rnd - 1;
 		}
@@ -320,7 +316,7 @@ stmt* choose_alt (altlist* l) // TODO
 int count_proc (proc* proc){
 	int cnt = 0;
 	struct proc* cur = proc;
-	while(cur != NULL){
+	while(cur){
 		cur = cur->next;
 		cnt = cnt + 1;
 	}
@@ -329,7 +325,7 @@ int count_proc (proc* proc){
 
 proc* get_proc(proc* proc, int n){
 	struct proc* cur = proc;
-	while(cur->next != NULL && n > 0){
+	while(cur->next && n > 0){
 		cur = cur->next;
 		n = n - 1;
 	}
@@ -338,10 +334,10 @@ proc* get_proc(proc* proc, int n){
 
 proc* remove_proc(proc* proc, int n){
 	struct proc* prec = get_proc(proc,n);
-	if (prec != NULL){
+	if (prec){
 		if(n==0)
 			return proc->next;
-		if(prec->next != NULL)
+		if(prec->next)
 			prec->next = prec->next->next;
 	}
 	return proc;
@@ -350,7 +346,7 @@ proc* remove_proc(proc* proc, int n){
 void exec_one_step(proc* proc)
 {
 	stmt* tmp = NULL;
-	if(proc->stmt == NULL)
+	if(!proc->stmt)
 		return;
 	switch(proc->stmt->type)
 	{
@@ -378,7 +374,7 @@ void exec_one_step(proc* proc)
 			tmp = proc->stmt;
 			while(tmp->type != DO){
 				tmp = tmp->next;
-				if(tmp == NULL){
+				if(!tmp){
 					proc->stmt = NULL;
 					return;
 				}
@@ -404,7 +400,7 @@ int execute (prog* prog){
 		proc* p = get_proc(prog->proc,rnd);
 		exec_one_step(p);
 		eval_reach(prog->reach);
-		if(p->stmt == NULL)
+		if(!p->stmt)
 			prog->proc = remove_proc(prog->proc,rnd);
 		cnt = count_proc(prog->proc);
 	}
