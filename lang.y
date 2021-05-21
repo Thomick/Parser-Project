@@ -206,9 +206,11 @@ reach* make_reach(expr *expr, reach *next)
 
 %%
  
-prog	: dec proclist reachlist	{ printf("globs"); make_prog($2,$3); program_vars = $1; }
+prog	: globs proclist reachlist	{ printf("globs"); make_prog($2,$3);  }
      	| proclist reachlist		{ printf("noglobs"); make_prog($1,$2); } 
-	| dec proclist		{ printf("globs");make_prog($2,NULL); program_vars = $1; }
+	| globs proclist		{ printf("globs");  make_prog($2,NULL);  }
+
+globs : dec {program_vars = $1;}
 
 dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
         | VAR declist ';'		{ $$ = $2; }
