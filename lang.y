@@ -111,7 +111,7 @@ var* concat_var (var *var1, var *var2)
 	return var1;
 }
 
-expr* make_expr (int type, var *var, expr *left, expr *right,int value)
+expr* make_expr (int type,int value, var *var, expr *left, expr *right)
 {
 	expr *e = malloc(sizeof(expr));
 	e->type = type;
@@ -176,13 +176,13 @@ reach* make_reach(expr *expr, reach *next)
 
 %union {
 	char *i;
+	int n;
 	var *v;
 	expr *e;
 	stmt *s;
 	altlist *a;
 	proc *pc;
 	reach *r;
-	int in;
 }
 
 %type <v> dec declist
@@ -194,7 +194,7 @@ reach* make_reach(expr *expr, reach *next)
 
 %token DO OD IF FI ELSE SKIP PROC END VAR REACH BREAK ASSIGN GUARD ARROW OR AND XOR NOT PLUS MINUS EQUAL INFERIOR SUPERIOR
 %token <i> IDENT
-%token <in> NUM
+%token <n> CONSTANT
 
 %left ';'
 
@@ -243,17 +243,17 @@ altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(IF,$2
 assign	: IDENT ASSIGN expr
 		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL); }
 
-expr	: IDENT		{ $$ = make_expr(0,find_ident($1),NULL,NULL,0); }
-	| expr XOR expr	{ $$ = make_expr(XOR,NULL,$1,$3,0); }
-	| expr OR expr	{ $$ = make_expr(OR,NULL,$1,$3,0); }
-	| expr AND expr	{ $$ = make_expr(AND,NULL,$1,$3,0); }
-	| NOT expr	{ $$ = make_expr(NOT,NULL,$2,NULL,0); }
-	| expr PLUS expr	{ $$ = make_expr(PLUS,NULL,$1,$3,0); }
-	| expr MINUS expr	{ $$ = make_expr(MINUS,NULL,$1,$3,0); }
-	| expr EQUAL expr	{ $$ = make_expr(EQUAL,NULL,$1,$3,0); }
-	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,NULL,$1,$3,0); }
-	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,NULL,$1,$3,0); }
-	| NUM 			{$$ = make_expr(NUM,NULL,NULL,NULL,$1);}
+expr	: IDENT		{ $$ = make_expr(0,0,find_ident($1),NULL,NULL); }
+     	| CONSTANT	{ $$ = make_expr(CONSTANT,$1,NULL,NULL,NULL); }
+	| expr XOR expr	{ $$ = make_expr(XOR,0,NULL,$1,$3); }
+	| expr OR expr	{ $$ = make_expr(OR,0,NULL,$1,$3); }
+	| expr AND expr	{ $$ = make_expr(AND,0,NULL,$1,$3); }
+	| NOT expr	{ $$ = make_expr(NOT,0,NULL,$2,NULL); }
+	| expr PLUS expr	{ $$ = make_expr(PLUS,0,NULL,$1,$3); }
+	| expr MINUS expr	{ $$ = make_expr(MINUS,0,NULL,$1,$3); }
+	| expr EQUAL expr	{ $$ = make_expr(EQUAL,0,NULL,$1,$3); }
+	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,0,NULL,$1,$3); }
+	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,0,NULL,$1,$3); }
 
 reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
 	  	| REACH expr		{ $$ = make_reach($2,NULL); }
@@ -278,7 +278,7 @@ int eval (expr *e)
 		case EQUAL: return (eval(e->left)==eval(e->right)) ? 1 : 0;
 		case INFERIOR: return (eval(e->left)<eval(e->right)) ? 1 : 0;
 		case SUPERIOR: return (eval(e->left)>eval(e->right)) ? 1 : 0;
-		case NUM: return e->value;
+		case CONSTANT: return e->value;
 		case 0: return e->var->value;
 	}
 }
