@@ -28,6 +28,7 @@
 "<"	{ return INFERIOR; }
 ">"	{ return SUPERIOR; }
 
+[0-9]+	{ yylval.n = atoi(yytext); return CONSTANT; }
 [a-z_][a-z0-9_]* { yylval.i = strdup(yytext); return IDENT; }
 
 [	 \n]   { /* ignore */ }
