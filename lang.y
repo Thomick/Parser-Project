@@ -317,9 +317,9 @@ int eval (expr *e, proc* proc)
 		case NOT: return !eval(e->left,proc);
 		case PLUS: return eval(e->left,proc)+eval(e->right,proc);
 		case MINUS: return eval(e->left,proc)-eval(e->right,proc);
-		case EQUAL: return (eval(e->left,proc)==eval(e->right,proc)) ? 1 : 0;
-		case INFERIOR: return (eval(e->left,proc)<eval(e->right,proc)) ? 1 : 0;
-		case SUPERIOR: return (eval(e->left,proc)>eval(e->right,proc)) ? 1 : 0;
+		case EQUAL: return (eval(e->left,proc)==eval(e->right,proc));
+		case INFERIOR: return (eval(e->left,proc)<eval(e->right,proc));
+		case SUPERIOR: return (eval(e->left,proc)>eval(e->right,proc));
 		case CONSTANT: return e->value;
 		case 0: return find_var(e->varname,proc)->value;
 	}
@@ -455,9 +455,10 @@ void print_reach(reach* r){
 }
 
 int execute (prog* prog){
+	int remaining_steps = 1000;
 	eval_reach(prog->reach);
 	int cnt = count_proc(prog->proc);
-	while(cnt){
+	while(cnt && remaining_steps){
 		int rnd = rand()%cnt;
 		proc* p = get_proc(prog->proc,rnd);
 		exec_one_step(p);
@@ -465,6 +466,7 @@ int execute (prog* prog){
 		if(!p->stmt)
 			prog->proc = remove_proc(prog->proc,rnd);
 		cnt = count_proc(prog->proc);
+		remaining_steps = remaining_steps-1;
 	}
 	print_reach(prog->reach);
 }
