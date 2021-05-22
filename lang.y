@@ -97,37 +97,44 @@ void print_vars(var *vars){
 
 var* make_ident (char *s)
 {
+	printf("Begin make_ident\n");
 	var *v = malloc(sizeof(var));
 	v->name = s;
 	v->value = 0;	// make variable false initially
 	v->next = NULL;
+	printf("End make_ident\n");
 	return v;
 }
 
 var* concat_var (var *var1, var *var2)
 {
+	printf("Begin concat_var\n");
 	var *v = var1;
 	while (v->next) {
 		v = v->next;}
 	v->next = var2;
+	printf("End concat_var\n");
 	return var1;
 }
 
 
 expr* make_expr (int type,int value, char *varname, expr *left, expr *right)
 {
+	printf("Begin make_expr\n");
 	expr *e = malloc(sizeof(expr));
 	e->type = type;
 	e->varname = varname;
 	e->left = left;
 	e->right = right;
 	e->value = value;
+	printf("End make_expr\n");
 	return e;
 }
 
 stmt* make_stmt (int type, char *varname, expr *expr,
 			stmt *left, stmt *right, altlist *altlist)
 {
+	printf("Begin make_stmt\n");
 	stmt *s = malloc(sizeof(stmt));
 	s->type = type;
 	s->varname = varname;
@@ -135,40 +142,51 @@ stmt* make_stmt (int type, char *varname, expr *expr,
 	s->left = left;
 	s->right = right;
 	s->altlist = altlist;
+	printf("End make_stmt\n");
 	return s;
 }
 
 altlist* make_altlist (int type,expr *expr, stmt *stmt)
 {
+	printf("Begin make_altlist\n");
 	altlist* a = malloc(sizeof(altlist));
 	a->type = type;
 	a->expr = expr;
 	a->stmt = stmt;
 	a->next = NULL;
+	printf("End make_altlist\n");
 	return a;
 }
 
 void make_prog (proc *proc, reach *reach)
 {
+	printf("Begin make_prog\n");
+	program = malloc(sizeof(prog));
 	program->proc = proc;
 	program->reach = reach;
+	printf("End make_prog\n");
 }
 
 proc* make_proc (var *locs, stmt *stmt, proc *next)
 {
+	printf("Begin make_proc\n");
 	proc* pc = malloc(sizeof(proc));
 	pc->locs = locs;
 	pc->stmt = stmt;
 	pc->next = next;
+	printf("End make_proc\n");
 	return pc;
 }
 
 reach* make_reach(expr *expr, reach *next)
 {
+	printf("Begin make_reach\n");
 	reach* r = malloc(sizeof(reach));
 	r->reached = 0;
 	r->expr = expr;
 	r->next = next;
+	printf("End make_reach\n");
+	return r;
 }
 
 %}
@@ -209,7 +227,7 @@ reach* make_reach(expr *expr, reach *next)
 
 %%
  
-prog	: globs proclist reachlist	{ make_prog($2,$3);  }
+prog	: globs proclist reachlist	{  make_prog($2,$3);  }
      	| proclist reachlist		{  make_prog($1,$2); } 
 	| globs proclist		{  make_prog($2,NULL);  }
 
@@ -235,12 +253,12 @@ stmt	: assign
 	| BREAK			{$$ = make_stmt(BREAK,NULL,NULL,NULL,NULL,NULL);}
 	| SKIP			{$$ = make_stmt(SKIP,NULL,NULL,NULL,NULL,NULL);}
 
-altlist	: GUARD expr ARROW stmt altlist {$$ = make_altlist(IF,$2,$4)->next = $5;}
+altlist	: GUARD expr ARROW stmt altlist {($$ = make_altlist(IF,$2,$4))->next = $5;}
 	| GUARD expr ARROW stmt	{$$ = make_altlist(IF,$2,$4);}
-	| GUARD ELSE ARROW stmt altlist_wo_else {$$ = make_altlist(ELSE,NULL,$4)->next = $5;}
+	| GUARD ELSE ARROW stmt altlist_wo_else {($$ = make_altlist(ELSE,NULL,$4))->next = $5;}
 	| GUARD ELSE ARROW stmt {$$ = make_altlist(ELSE,NULL,$4);}
 
-altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(IF,$2,$4)->next = $5;}
+altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {($$ = make_altlist(IF,$2,$4))->next = $5;}
 		| GUARD expr ARROW stmt {$$ = make_altlist(IF,$2,$4);}
 
 assign	: IDENT ASSIGN expr
