@@ -28,7 +28,7 @@ typedef struct var	// a variable
 typedef struct expr	// boolean expression
 {
 	int type;	// TRUE, FALSE, OR, AND, NOT, 0 (variable)
-	var *var;
+	char *varname;
 	struct expr *left, *right;
 	int value;
 } expr;
@@ -44,7 +44,7 @@ typedef struct altlist
 typedef struct stmt	// command
 {
 	int type;	// ASSIGN, ';', LOOP, BRANCH, PRINT
-	var *var;
+	char *varname;
 	expr *expr;
 	struct stmt *left, *right;
 	struct altlist *altlist;
@@ -86,6 +86,15 @@ prog *program;
 /****************************************************************************/
 /* Functions for settting up data structures at parse time.                 */
 
+
+void print_vars(var *vars){
+	var *v = vars;
+	while (v->next) {
+		printf("%s",v->name);
+		v = v->next;}
+	printf("\n");
+}
+
 var* make_ident (char *s)
 {
 	var *v = malloc(sizeof(var));
@@ -95,39 +104,33 @@ var* make_ident (char *s)
 	return v;
 }
 
-var* find_ident (char *s)
-{
-	var *v = program_vars;
-	while (v && strcmp(v->name,s)) v = v->next;
-	if (!v) { yyerror("undeclared variable"); exit(1); }
-	return v;
-}
-
 var* concat_var (var *var1, var *var2)
 {
 	var *v = var1;
-	while (v->next) v = v->next;
+	while (v->next) {
+		v = v->next;}
 	v->next = var2;
 	return var1;
 }
 
-expr* make_expr (int type,int value, var *var, expr *left, expr *right)
+
+expr* make_expr (int type,int value, char *varname, expr *left, expr *right)
 {
 	expr *e = malloc(sizeof(expr));
 	e->type = type;
-	e->var = var;
+	e->varname = varname;
 	e->left = left;
 	e->right = right;
 	e->value = value;
 	return e;
 }
 
-stmt* make_stmt (int type, var *var, expr *expr,
+stmt* make_stmt (int type, char *varname, expr *expr,
 			stmt *left, stmt *right, altlist *altlist)
 {
 	stmt *s = malloc(sizeof(stmt));
 	s->type = type;
-	s->var = var;
+	s->varname = varname;
 	s->expr = expr;
 	s->left = left;
 	s->right = right;
@@ -206,9 +209,9 @@ reach* make_reach(expr *expr, reach *next)
 
 %%
  
-prog	: globs proclist reachlist	{ printf("globs"); make_prog($2,$3);  }
-     	| proclist reachlist		{ printf("noglobs"); make_prog($1,$2); } 
-	| globs proclist		{ printf("globs");  make_prog($2,NULL);  }
+prog	: globs proclist reachlist	{ make_prog($2,$3);  }
+     	| proclist reachlist		{  make_prog($1,$2); } 
+	| globs proclist		{  make_prog($2,NULL);  }
 
 globs : dec {program_vars = $1;}
 
@@ -241,9 +244,9 @@ altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {$$ = make_altlist(IF,$2
 		| GUARD expr ARROW stmt {$$ = make_altlist(IF,$2,$4);}
 
 assign	: IDENT ASSIGN expr
-		{ $$ = make_stmt(ASSIGN,find_ident($1),$3,NULL,NULL,NULL); }
+		{ $$ = make_stmt(ASSIGN,$1,$3,NULL,NULL,NULL); }
 
-expr	: IDENT		{ $$ = make_expr(0,0,find_ident($1),NULL,NULL); }
+expr	: IDENT		{ $$ = make_expr(0,0,$1,NULL,NULL); }
      	| CONSTANT	{ $$ = make_expr(CONSTANT,$1,NULL,NULL,NULL); }
 	| expr XOR expr	{ $$ = make_expr(XOR,0,NULL,$1,$3); }
 	| expr OR expr	{ $$ = make_expr(OR,0,NULL,$1,$3); }
@@ -263,27 +266,45 @@ reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
 #include "langlex.c"
 
 /****************************************************************************/
-/* programme interpreter      :                                             */
+/* programme interpreter      :   */
 
-int eval (expr *e)
+var* find_var_from_varlist (char *s,var* vars)
+{
+	var *v = vars;
+	while (v && strcmp(v->name,s)) v = v->next;
+	return v;
+}
+
+var* find_var (char *s,proc* proc)
+{
+	var *v;
+	if(proc)
+		v=find_var_from_varlist(s,proc->locs);
+	if(!v)
+		v=find_var_from_varlist(s,program_vars);
+	if (!v) { yyerror("undeclared variable"); exit(1); }
+	return v;
+}
+
+int eval (expr *e, proc* proc)
 {
 	switch (e->type)
 	{
-		case XOR: return eval(e->left) ^ eval(e->right);
-		case OR: return eval(e->left) || eval(e->right);
-		case AND: return eval(e->left) && eval(e->right);
-		case NOT: return !eval(e->left);
-		case PLUS: return eval(e->left)+eval(e->right);
-		case MINUS: return eval(e->left)-eval(e->right);
-		case EQUAL: return (eval(e->left)==eval(e->right)) ? 1 : 0;
-		case INFERIOR: return (eval(e->left)<eval(e->right)) ? 1 : 0;
-		case SUPERIOR: return (eval(e->left)>eval(e->right)) ? 1 : 0;
+		case XOR: return eval(e->left,proc) ^ eval(e->right,proc);
+		case OR: return eval(e->left,proc) || eval(e->right,proc);
+		case AND: return eval(e->left,proc) && eval(e->right,proc);
+		case NOT: return !eval(e->left,proc);
+		case PLUS: return eval(e->left,proc)+eval(e->right,proc);
+		case MINUS: return eval(e->left,proc)-eval(e->right,proc);
+		case EQUAL: return (eval(e->left,proc)==eval(e->right,proc)) ? 1 : 0;
+		case INFERIOR: return (eval(e->left,proc)<eval(e->right,proc)) ? 1 : 0;
+		case SUPERIOR: return (eval(e->left,proc)>eval(e->right,proc)) ? 1 : 0;
 		case CONSTANT: return e->value;
-		case 0: return e->var->value;
+		case 0: return find_var(e->varname,proc)->value;
 	}
 }
 
-stmt* choose_alt (altlist* l) // TODO
+stmt* choose_alt (altlist* l,proc* proc) // TODO
 {
 	stmtlist* list = NULL;
 	int cnt = 0;
@@ -292,7 +313,7 @@ stmt* choose_alt (altlist* l) // TODO
 	while(cur->next){
 		if(cur->type == ELSE)
 			elsestmt = cur->stmt;
-		else if(eval(cur->expr)){
+		else if(eval(cur->expr,proc)){
 			stmtlist* tmp = malloc(sizeof(stmtlist));
 			tmp->stmt = cur->stmt;
 			tmp->next = list;
@@ -351,7 +372,7 @@ void exec_one_step(proc* proc)
 	switch(proc->stmt->type)
 	{
 		case ASSIGN:
-			proc->stmt->var->value = eval(proc->stmt->expr);
+			find_var(proc->stmt->varname,proc)->value = eval(proc->stmt->expr,proc);
 			proc->stmt = proc->stmt->next;
 			break;
 		case ';':
@@ -361,12 +382,12 @@ void exec_one_step(proc* proc)
 			exec_one_step(proc);
 			break;
 		case DO:
-			tmp = choose_alt(proc->stmt->altlist);
+			tmp = choose_alt(proc->stmt->altlist,proc);
 			tmp->next = proc->stmt;
 			proc->stmt = tmp;
 			break;
 		case IF:
-			tmp = choose_alt(proc->stmt->altlist);
+			tmp = choose_alt(proc->stmt->altlist,proc);
 			tmp->next = proc->stmt->next;
 			proc->stmt = tmp;
 			break;
@@ -386,33 +407,34 @@ void exec_one_step(proc* proc)
 	}
 }
 
-void eval_reach(reach* r){
+void eval_reach(reach* r,proc* proc){
 	if(r==NULL)
 		return;
-	if(eval(r->expr))
+	if(eval(r->expr,proc))
 		r->reached = 1;
 }
 
 int execute (prog* prog){
+	printf("Begin execution");
 	int cnt = count_proc(prog->proc);
 	while(cnt){
 		int rnd = rand()%cnt;
 		proc* p = get_proc(prog->proc,rnd);
 		exec_one_step(p);
-		eval_reach(prog->reach);
+		eval_reach(prog->reach,p);
 		if(!p->stmt)
 			prog->proc = remove_proc(prog->proc,rnd);
 		cnt = count_proc(prog->proc);
 	}
 }
-
 /****************************************************************************/
 
 int main (int argc, char **argv)
 {
 	srand(time(NULL));
-	if (argc <= 1) { yyerror("no file specified"); exit(1); }
-	yyin = fopen(argv[1],"r");
+	//if (argc <= 1) { yyerror("no file specified"); exit(1); }
+	//yyin = fopen(argv[1],"r");
+	yyin = fopen("progs/sort.prog","r");
 	if (!yyparse()) {
 		execute(program);
 	}

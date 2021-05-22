@@ -1,7 +1,7 @@
 NAME = lang
 
 all : langlex.c lang.c
-	gcc lang.c -o $(NAME)
+	gcc -ggdb lang.c -o $(NAME)
 
 langlex.c : langlex.l
 	flex -o langlex.c langlex.l
