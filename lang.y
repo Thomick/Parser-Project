@@ -1,4 +1,6 @@
-%define parse.error detailed
+%locations
+%define parse.error verbose
+%define parse.trace
 
 %{
 
@@ -7,14 +9,14 @@
 #include <time.h>
 #include <string.h>
 
+char* fname_src;
+extern int yylineno;
+void yyerror (const char* s) {
+    fflush(stdout);
+    fprintf(stderr, "%s\nat %s:%d\n", s, fname_src, yylineno);
+}
 
 int yylex();
-
-void yyerror(char *s)
-{
-	fflush(stdout);
-	fprintf(stderr, "%s\n", s);
-}
 
 /***************************************************************************/
 /* Data structures for storing a programme.                                */
@@ -97,44 +99,37 @@ void print_vars(var *vars){
 
 var* make_ident (char *s)
 {
-	printf("Begin make_ident\n");
 	var *v = malloc(sizeof(var));
 	v->name = s;
 	v->value = 0;	// make variable false initially
 	v->next = NULL;
-	printf("End make_ident\n");
 	return v;
 }
 
 var* concat_var (var *var1, var *var2)
 {
-	printf("Begin concat_var\n");
 	var *v = var1;
 	while (v->next) {
 		v = v->next;}
 	v->next = var2;
-	printf("End concat_var\n");
 	return var1;
 }
 
 
 expr* make_expr (int type,int value, char *varname, expr *left, expr *right)
 {
-	printf("Begin make_expr\n");
 	expr *e = malloc(sizeof(expr));
 	e->type = type;
 	e->varname = varname;
 	e->left = left;
 	e->right = right;
 	e->value = value;
-	printf("End make_expr\n");
 	return e;
 }
 
 stmt* make_stmt (int type, char *varname, expr *expr,
 			stmt *left, stmt *right, altlist *altlist)
 {
-	printf("Begin make_stmt\n");
 	stmt *s = malloc(sizeof(stmt));
 	s->type = type;
 	s->varname = varname;
@@ -142,50 +137,41 @@ stmt* make_stmt (int type, char *varname, expr *expr,
 	s->left = left;
 	s->right = right;
 	s->altlist = altlist;
-	printf("End make_stmt\n");
 	return s;
 }
 
 altlist* make_altlist (int type,expr *expr, stmt *stmt)
 {
-	printf("Begin make_altlist\n");
 	altlist* a = malloc(sizeof(altlist));
 	a->type = type;
 	a->expr = expr;
 	a->stmt = stmt;
 	a->next = NULL;
-	printf("End make_altlist\n");
 	return a;
 }
 
 void make_prog (proc *proc, reach *reach)
 {
-	printf("Begin make_prog\n");
 	program = malloc(sizeof(prog));
 	program->proc = proc;
 	program->reach = reach;
-	printf("End make_prog\n");
 }
 
 proc* make_proc (var *locs, stmt *stmt, proc *next)
 {
-	printf("Begin make_proc\n");
 	proc* pc = malloc(sizeof(proc));
 	pc->locs = locs;
 	pc->stmt = stmt;
 	pc->next = next;
-	printf("End make_proc\n");
 	return pc;
 }
 
 reach* make_reach(expr *expr, reach *next)
 {
-	printf("Begin make_reach\n");
 	reach* r = malloc(sizeof(reach));
 	r->reached = 0;
 	r->expr = expr;
 	r->next = next;
-	printf("End make_reach\n");
 	return r;
 }
 
@@ -295,13 +281,30 @@ var* find_var_from_varlist (char *s,var* vars)
 
 var* find_var (char *s,proc* proc)
 {
-	var *v;
+	var *v = NULL;
 	if(proc)
 		v=find_var_from_varlist(s,proc->locs);
 	if(!v)
 		v=find_var_from_varlist(s,program_vars);
 	if (!v) { yyerror("undeclared variable"); exit(1); }
 	return v;
+}
+
+void print_expr(expr *e){
+	switch (e->type)
+	{
+		case XOR: print_expr(e->left); printf("^ "); print_expr(e->right);break;
+		case OR: print_expr(e->left); printf("|| ") ;  print_expr(e->right);break;
+		case AND: print_expr(e->left); printf("&& "); print_expr(e->right);break;
+		case NOT: printf("!"); print_expr(e->left);break;
+		case PLUS: print_expr(e->left); printf("+ "); print_expr(e->right);break;
+		case MINUS: print_expr(e->left); printf("- "); print_expr(e->right);break;
+		case EQUAL: print_expr(e->left); printf("== "); print_expr(e->right);break;
+		case INFERIOR: print_expr(e->left); printf("< "); print_expr(e->right);break;
+		case SUPERIOR: print_expr(e->left); printf("> "); print_expr(e->right);break;
+		case CONSTANT: printf("%d ",e->value);break;
+		case 0: printf("%s ",e->varname);break;
+	}
 }
 
 int eval (expr *e, proc* proc)
@@ -328,7 +331,7 @@ stmt* choose_alt (altlist* l,proc* proc) // TODO
 	int cnt = 0;
 	stmt* elsestmt = NULL;
 	altlist* cur = l;
-	while(cur->next){
+	while(cur){
 		if(cur->type == ELSE)
 			elsestmt = cur->stmt;
 		else if(eval(cur->expr,proc)){
@@ -343,7 +346,7 @@ stmt* choose_alt (altlist* l,proc* proc) // TODO
 	if (cnt > 0){
 		int rnd = rand()%cnt;
 		stmtlist* cur = list;
-		while(cur->next && rnd > 0){
+		while(cur && rnd > 0){
 			cur = cur->next;
 			rnd = rnd - 1;
 		}
@@ -401,13 +404,19 @@ void exec_one_step(proc* proc)
 			break;
 		case DO:
 			tmp = choose_alt(proc->stmt->altlist,proc);
-			tmp->next = proc->stmt;
-			proc->stmt = tmp;
+			if(tmp){
+				tmp->next = proc->stmt;
+				proc->stmt = tmp;
+			}else
+				proc->stmt = proc->stmt->next;
 			break;
 		case IF:
 			tmp = choose_alt(proc->stmt->altlist,proc);
-			tmp->next = proc->stmt->next;
-			proc->stmt = tmp;
+			if(tmp){
+				tmp->next = proc->stmt->next;
+				proc->stmt = tmp;
+			}else
+				proc->stmt = proc->stmt->next;
 			break;
 		case BREAK:
 			tmp = proc->stmt;
@@ -425,34 +434,48 @@ void exec_one_step(proc* proc)
 	}
 }
 
-void eval_reach(reach* r,proc* proc){
-	if(r==NULL)
+void eval_reach(reach* r){
+	if(!r)
 		return;
-	if(eval(r->expr,proc))
+	if(eval(r->expr,NULL))
 		r->reached = 1;
+	eval_reach(r->next);
+}
+
+void print_reach(reach* r){
+	if(!r)
+		return;
+	if(r->reached)
+		printf("Reached : ");
+	else 
+		printf("Unreached : ");
+	print_expr(r->expr);
+	printf("\n");
+	print_reach(r->next);
 }
 
 int execute (prog* prog){
-	printf("Begin execution");
+	eval_reach(prog->reach);
 	int cnt = count_proc(prog->proc);
 	while(cnt){
 		int rnd = rand()%cnt;
 		proc* p = get_proc(prog->proc,rnd);
 		exec_one_step(p);
-		eval_reach(prog->reach,p);
+		eval_reach(prog->reach);
 		if(!p->stmt)
 			prog->proc = remove_proc(prog->proc,rnd);
 		cnt = count_proc(prog->proc);
 	}
+	print_reach(prog->reach);
 }
 /****************************************************************************/
 
 int main (int argc, char **argv)
 {
 	srand(time(NULL));
-	//if (argc <= 1) { yyerror("no file specified"); exit(1); }
-	//yyin = fopen(argv[1],"r");
-	yyin = fopen("progs/sort.prog","r");
+	if (argc <= 1) { yyerror("no file specified"); exit(1); }
+	fname_src = argv[1];
+	yyin = fopen(argv[1],"r");
 	if (!yyparse()) {
 		execute(program);
 	}
