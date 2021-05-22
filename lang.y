@@ -24,6 +24,7 @@ typedef struct var	// a variable
 {
 	char *name;
 	int value;
+	int initialized;
 	struct var *next;
 } var;
 
@@ -97,12 +98,13 @@ void print_vars(var *vars){
 	printf("\n");
 }
 
-var* make_ident (char *s)
+var* make_var (char *s)
 {
 	var *v = malloc(sizeof(var));
 	v->name = s;
 	v->value = 0;	// make variable false initially
 	v->next = NULL;
+	v->initialized = 0;
 	return v;
 }
 
@@ -222,8 +224,8 @@ globs : dec {program_vars = $1;}
 dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
         | VAR declist ';'		{ $$ = $2; }
 
-declist	: IDENT			{ $$ = make_ident($1); }
-		| declist ',' IDENT	{ ($$ = make_ident($3))->next = $1; }
+declist	: IDENT			{ $$ = make_var($1); }
+		| declist ',' IDENT	{ ($$ = make_var($3))->next = $1; }
 
 proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6); }
 	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5); }
@@ -307,22 +309,45 @@ void print_expr(expr *e){
 	}
 }
 
-int eval (expr *e, proc* proc)
+int has_uninit_var (expr *e, proc* proc){
+	switch (e->type)
+	{
+		case XOR: return has_uninit_var(e->left,proc) || has_uninit_var(e->right,proc);
+		case OR: return has_uninit_var(e->left,proc) || has_uninit_var(e->right,proc);
+		case AND: return has_uninit_var(e->left,proc) || has_uninit_var(e->right,proc);
+		case NOT: return has_uninit_var(e->left,proc);
+		case PLUS: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
+		case MINUS: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
+		case EQUAL: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
+		case INFERIOR: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
+		case SUPERIOR: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
+		case CONSTANT: return 0;
+		case 0: return !find_var(e->varname,proc)->initialized;
+	}
+}
+
+int eval_step (expr *e, proc* proc)
 {
 	switch (e->type)
 	{
-		case XOR: return eval(e->left,proc) ^ eval(e->right,proc);
-		case OR: return eval(e->left,proc) || eval(e->right,proc);
-		case AND: return eval(e->left,proc) && eval(e->right,proc);
-		case NOT: return !eval(e->left,proc);
-		case PLUS: return eval(e->left,proc)+eval(e->right,proc);
-		case MINUS: return eval(e->left,proc)-eval(e->right,proc);
-		case EQUAL: return (eval(e->left,proc)==eval(e->right,proc));
-		case INFERIOR: return (eval(e->left,proc)<eval(e->right,proc));
-		case SUPERIOR: return (eval(e->left,proc)>eval(e->right,proc));
+		case XOR: return eval_step(e->left,proc) ^ eval_step(e->right,proc);
+		case OR: return eval_step(e->left,proc) || eval_step(e->right,proc);
+		case AND: return eval_step(e->left,proc) && eval_step(e->right,proc);
+		case NOT: return !eval_step(e->left,proc);
+		case PLUS: return eval_step(e->left,proc)+eval_step(e->right,proc);
+		case MINUS: return eval_step(e->left,proc)-eval_step(e->right,proc);
+		case EQUAL: return eval_step(e->left,proc)==eval_step(e->right,proc);
+		case INFERIOR: return eval_step(e->left,proc)<eval_step(e->right,proc);
+		case SUPERIOR: return eval_step(e->left,proc)>eval_step(e->right,proc);
 		case CONSTANT: return e->value;
 		case 0: return find_var(e->varname,proc)->value;
 	}
+}
+
+int eval (expr *e, proc* proc){
+	if(has_uninit_var(e, proc))
+		return 0;
+	return eval_step(e, proc);
 }
 
 stmt* choose_alt (altlist* l,proc* proc) // TODO
@@ -388,12 +413,15 @@ proc* remove_proc(proc* proc, int n){
 void exec_one_step(proc* proc)
 {
 	stmt* tmp = NULL;
+	var* tmpvar = NULL;
 	if(!proc->stmt)
 		return;
 	switch(proc->stmt->type)
 	{
 		case ASSIGN:
-			find_var(proc->stmt->varname,proc)->value = eval(proc->stmt->expr,proc);
+			tmpvar = find_var(proc->stmt->varname,proc);
+			tmpvar->value = eval(proc->stmt->expr,proc);
+			tmpvar->initialized = 1;
 			proc->stmt = proc->stmt->next;
 			break;
 		case ';':
