@@ -1,0 +1,9 @@
+proc p
+	if
+		:: 1 -> test : skip
+		:: 1 -> skip
+		:: 1 -> skip
+	fi
+end
+
+reach p@test
