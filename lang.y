@@ -461,48 +461,52 @@ proc* get_proc(proc* proc, int n){
 	return cur;
 }
 
+// Execute one program step in the process proc
 void exec_one_step(proc* proc)
 {
 	stmt* tmp = NULL;
 	var* tmpvar = NULL;
-	if(!proc->stmt)
+	if(!proc->stmt) // Reached the end of the process
 		return;
 	switch(proc->stmt->type)
 	{
 		case ASSIGN:
 			tmpvar = find_var(proc->stmt->varname,proc);
 			tmpvar->value = eval(proc->stmt->expr,proc);
-			tmpvar->initialized = 1;
-			proc->stmt = proc->stmt->next;
+			tmpvar->initialized = 1; // Initialize or update the variable
+			proc->stmt = proc->stmt->next; // goto next statement
 			break;
 		case ';':
+			// Add substatements on the process statement stack
 			proc->stmt->right->next = proc->stmt->next;
 			proc->stmt->left->next = proc->stmt->right;
 			proc->stmt = proc->stmt->left;
-			exec_one_step(proc);
+			exec_one_step(proc); // No step was executed so we call the function again
 			break;
 		case DO:
+			// Add one alternative statement on the process statement stack without removing the loop statement
 			tmp = choose_alt(proc->stmt->altlist,proc);
 			if(tmp){
 				tmp->next = proc->stmt;
 				proc->stmt = tmp;
-			}else
+			}else // No condition is met and no else statement so we leave the loop
 				proc->stmt = proc->stmt->next;
 			break;
 		case IF:
+			// Add one alternative statement on the process statement stack and remove the if statement
 			tmp = choose_alt(proc->stmt->altlist,proc);
 			if(tmp){
 				tmp->next = proc->stmt->next;
 				proc->stmt = tmp;
-			}else
+			}else // No condition is met and no else statement so we do nothing
 				proc->stmt = proc->stmt->next;
 			break;
 		case BREAK:
 			tmp = proc->stmt;
-			while(tmp->type != DO){
+			while(tmp->type != DO){ // iterate until the next loop statement
 				tmp = tmp->next;
 				if(!tmp){
-					proc->stmt = NULL;
+					proc->stmt = NULL;	// There is no more statement in the process stack so the process is ended
 					return;
 				}
 			}
@@ -513,6 +517,7 @@ void exec_one_step(proc* proc)
 	}
 }
 
+// Evaluate if specifications were verified and update their state
 void eval_reach(reach* r){
 	if(!r)
 		return;
@@ -521,6 +526,8 @@ void eval_reach(reach* r){
 	eval_reach(r->next);
 }
 
+// Update the number of times a specification was verified
+// Must be called at the end of an execution
 void update_reach(reach* r){
 	if(!r)
 		return;
@@ -529,6 +536,7 @@ void update_reach(reach* r){
 	update_reach(r->next);
 }
 
+// Print how often a specification was met 
 void print_reach(reach* r, int nb_it){
 	if(!r)
 		return;
@@ -541,23 +549,28 @@ void print_reach(reach* r, int nb_it){
 	print_reach(r->next,nb_it);
 }
 
+// Resets the program to a state from which it can be run again
+// But doesn't erase some data such as the number of time where a program reached a certain state
 void reset_program(){
 	var* curvar = program_vars;
+	// Uninitialize global variables
 	while (curvar){
 		curvar->initialized = 0;
 		curvar = curvar->next;
 	}
 	proc* curproc = program->proc;
 	while (curproc){
-		curvar = curproc->locs;
+		curvar = curproc->locs;	
+		// Uninitialize local variables 
 		while(curvar){
 			curvar->initialized = 0;
 			curvar = curvar->next;
 		}
-		curproc->stmt = curproc->start_stmt;
+		curproc->stmt = curproc->start_stmt; // Go back to first statement
 		curproc = curproc->next;
 	}
 	reach* curreach = program->reach;
+	// Reset specification but not the counter
 	while(curreach){
 		curreach->reached = 0;
 		curreach = curreach->next;
@@ -577,7 +590,7 @@ int execute (int max_step){
 		cnt = count_proc(program->proc);
 		remaining_steps = remaining_steps-1;
 	}
-	update_reach(program->reach);
+	update_reach(program->reach); // Update reach counter
 }
 /****************************************************************************/
 
