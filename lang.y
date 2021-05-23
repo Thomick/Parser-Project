@@ -331,7 +331,7 @@ void print_expr(expr *e){
 		case XOR: print_expr(e->left); printf("^ "); print_expr(e->right);break;
 		case OR: print_expr(e->left); printf("|| ") ;  print_expr(e->right);break;
 		case AND: print_expr(e->left); printf("&& "); print_expr(e->right);break;
-		case NOT: printf("!"); print_expr(e->left);break;
+		case NOT: printf("!( "); print_expr(e->left);printf(") ");break;
 		case PLUS: print_expr(e->left); printf("+ "); print_expr(e->right);break;
 		case MINUS: print_expr(e->left); printf("- "); print_expr(e->right);break;
 		case EQUAL: print_expr(e->left); printf("== "); print_expr(e->right);break;
@@ -564,9 +564,9 @@ void reset_program(){
 	}
 }
 
-int execute (){
+int execute (int max_step){
 	reset_program();
-	int remaining_steps = 1000;
+	int remaining_steps = max_step;
 	eval_reach(program->reach);
 	int cnt = count_proc(program->proc);
 	while(cnt && remaining_steps){
@@ -592,7 +592,7 @@ int main (int argc, char **argv)
 	if (!yyparse()) {
 		printf("Begin running the program %d times, over at most %d steps\n", nb_it,nb_step);
 		for(int i = 0; i< nb_it; i += 1){
-			execute();
+			execute(nb_step);
 		}
 		print_reach(program->reach,nb_it);
 	}

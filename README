@@ -1,9 +1,0 @@
-Projet réalisé par Mangel Léo et Michel Thomas
-
-Nous avons réalisé le niveau 2 du projet.
-
-Nous avons également également implémenté l'amélioration 2, c'est à dire les
-labels. Dans la version implémentée, les prédicats de la forme p@ici peuvent se
-trouver dans toutes les expressions du programme (et donc pas seulement dans
-les spécifications). Nous avons également choisi que ici : stmt1; stmt2
-s'interprète comme ici : (stmt1; stmt2).
