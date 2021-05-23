@@ -267,6 +267,7 @@ expr	: IDENT		{ $$ = make_expr(0,0,$1,NULL,NULL); }
 	| expr EQUAL expr	{ $$ = make_expr(EQUAL,0,NULL,$1,$3); }
 	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,0,NULL,$1,$3); }
 	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,0,NULL,$1,$3); }
+	| '(' expr ')'		{ $$ = $2; }
 
 reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
 	  	| REACH expr		{ $$ = make_reach($2,NULL); }
