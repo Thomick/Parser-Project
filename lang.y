@@ -64,6 +64,7 @@ typedef struct proc
 {
 	var *locs;
 	stmt *stmt;
+	stmt *start_stmt;
 	struct proc *next;
 } proc;
 
@@ -72,6 +73,7 @@ typedef struct reach
 	int reached;
 	expr *expr;
 	struct reach *next;
+	int cnt;
 } reach;
 	
 typedef struct prog 
@@ -165,6 +167,7 @@ proc* make_proc (var *locs, stmt *stmt, proc *next)
 	pc->locs = locs;
 	pc->stmt = stmt;
 	pc->next = next;
+	pc->start_stmt = stmt;
 	return pc;
 }
 
@@ -174,6 +177,7 @@ reach* make_reach(expr *expr, reach *next)
 	r->reached = 0;
 	r->expr = expr;
 	r->next = next;
+	r->cnt = 0;
 	return r;
 }
 
@@ -384,30 +388,24 @@ int count_proc (proc* proc){
 	int cnt = 0;
 	struct proc* cur = proc;
 	while(cur){
+		if(cur->stmt)
+			cnt = cnt + 1;
 		cur = cur->next;
-		cnt = cnt + 1;
 	}
 	return cnt;
 }
 
 proc* get_proc(proc* proc, int n){
 	struct proc* cur = proc;
-	while(cur->next && n > 0){
+	n=n+1;
+	while(cur->next){
+		if(cur->stmt)
+			n = n - 1;
+		if(n == 0)
+			return cur;
 		cur = cur->next;
-		n = n - 1;
 	}
 	return cur;
-}
-
-proc* remove_proc(proc* proc, int n){
-	struct proc* prec = get_proc(proc,n);
-	if (prec){
-		if(n==0)
-			return proc->next;
-		if(prec->next)
-			prec->next = prec->next->next;
-	}
-	return proc;
 }
 
 void exec_one_step(proc* proc)
@@ -470,33 +468,63 @@ void eval_reach(reach* r){
 	eval_reach(r->next);
 }
 
-void print_reach(reach* r){
+void update_reach(reach* r){
 	if(!r)
 		return;
 	if(r->reached)
+		r->cnt += 1;
+	update_reach(r->next);
+}
+
+void print_reach(reach* r, int nb_it){
+	if(!r)
+		return;
+	if(r->cnt)
 		printf("Reached : ");
 	else 
 		printf("Unreached : ");
 	print_expr(r->expr);
-	printf("\n");
-	print_reach(r->next);
+	printf("   (%d/%d)\n",r->cnt,nb_it);
+	print_reach(r->next,nb_it);
 }
 
-int execute (prog* prog){
+void reset_program(){
+	var* curvar = program_vars;
+	while (curvar){
+		curvar->initialized = 0;
+		curvar = curvar->next;
+	}
+	proc* curproc = program->proc;
+	while (curproc){
+		curvar = curproc->locs;
+		while(curvar){
+			curvar->initialized = 0;
+			curvar = curvar->next;
+		}
+		curproc->stmt = curproc->start_stmt;
+		curproc = curproc->next;
+	}
+	reach* curreach = program->reach;
+	while(curreach){
+		curreach->reached = 0;
+		curreach = curreach->next;
+	}
+}
+
+int execute (){
+	reset_program();
 	int remaining_steps = 1000;
-	eval_reach(prog->reach);
-	int cnt = count_proc(prog->proc);
+	eval_reach(program->reach);
+	int cnt = count_proc(program->proc);
 	while(cnt && remaining_steps){
 		int rnd = rand()%cnt;
-		proc* p = get_proc(prog->proc,rnd);
+		proc* p = get_proc(program->proc,rnd);
 		exec_one_step(p);
-		eval_reach(prog->reach);
-		if(!p->stmt)
-			prog->proc = remove_proc(prog->proc,rnd);
-		cnt = count_proc(prog->proc);
+		eval_reach(program->reach);
+		cnt = count_proc(program->proc);
 		remaining_steps = remaining_steps-1;
 	}
-	print_reach(prog->reach);
+	update_reach(program->reach);
 }
 /****************************************************************************/
 
@@ -504,9 +532,15 @@ int main (int argc, char **argv)
 {
 	srand(time(NULL));
 	if (argc <= 1) { yyerror("no file specified"); exit(1); }
+	int nb_it = argc >= 3 ? atoi(argv[2]) : 100;
+	int nb_step = argc >= 4 ? atoi(argv[3]) : 1000;
 	fname_src = argv[1];
 	yyin = fopen(argv[1],"r");
 	if (!yyparse()) {
-		execute(program);
+		printf("Begin running the program %d times, over at most %d steps\n", nb_it,nb_step);
+		for(int i = 0; i< nb_it; i += 1){
+			execute();
+		}
+		print_reach(program->reach,nb_it);
 	}
 }
