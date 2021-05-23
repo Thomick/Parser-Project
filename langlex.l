@@ -25,9 +25,10 @@
 "!"	{ return NOT; }
 "+"	{ return PLUS; }
 "-"	{ return MINUS; }
-"==" {return EQUAL; }
+"==" 	{ return EQUAL; }
 "<"	{ return INFERIOR; }
 ">"	{ return SUPERIOR; }
+"@"	{ return AROBASE; }
 
 [a-z_][a-z0-9_]* { yylval.i = strdup(yytext); return IDENT; }
 ("0"|[1-9][0-9]*) { yylval.n = atoi(yytext); return CONSTANT; }

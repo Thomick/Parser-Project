@@ -34,6 +34,7 @@ typedef struct expr	// boolean expression
 	char *varname;
 	struct expr *left, *right;
 	int value;
+	char *procname, *labelname;
 } expr;
 
 typedef struct altlist
@@ -44,11 +45,18 @@ typedef struct altlist
 	struct altlist* next;
 } altlist;
 
+typedef struct label
+{
+	char *name;
+	struct label *next;
+} label;
+
 typedef struct stmt	// command
 {
 	int type;	// ASSIGN, ';', LOOP, BRANCH, PRINT
 	char *varname;
 	expr *expr;
+	label *label;
 	struct stmt *left, *right;
 	struct altlist *altlist;
 	struct stmt *next;
@@ -62,6 +70,7 @@ typedef struct stmtlist
 
 typedef struct proc
 {
+	char *name;
 	var *locs;
 	stmt *stmt;
 	stmt *start_stmt;
@@ -120,7 +129,7 @@ var* concat_var (var *var1, var *var2)
 }
 
 
-expr* make_expr (int type,int value, char *varname, expr *left, expr *right)
+expr* make_expr (int type,int value, char *varname, expr *left, expr *right, char *procname, char *labelname)
 {
 	expr *e = malloc(sizeof(expr));
 	e->type = type;
@@ -128,6 +137,8 @@ expr* make_expr (int type,int value, char *varname, expr *left, expr *right)
 	e->left = left;
 	e->right = right;
 	e->value = value;
+	e->procname = procname;
+	e->labelname = labelname;
 	return e;
 }
 
@@ -142,6 +153,18 @@ stmt* make_stmt (int type, char *varname, expr *expr,
 	s->right = right;
 	s->altlist = altlist;
 	return s;
+}
+
+void add_label (char *labelname, stmt *stmt)
+{
+	if(!stmt) {
+		label *label = malloc(sizeof(label));
+		label->name = labelname;
+		label->next = stmt->label;
+		stmt->label = label;
+		add_label (labelname,stmt->left);
+		add_label (labelname,stmt->right);
+	}
 }
 
 altlist* make_altlist (int type,expr *expr, stmt *stmt)
@@ -205,11 +228,12 @@ reach* make_reach(expr *expr, reach *next)
 %type <pc> proclist
 %type <r> reachlist
 
-%token DO OD IF FI ELSE SKIP PROC END VAR REACH BREAK ASSIGN GUARD ARROW OR AND XOR NOT PLUS MINUS EQUAL INFERIOR SUPERIOR
+%token DO OD IF FI ELSE SKIP PROC END VAR REACH BREAK ASSIGN GUARD ARROW OR AND XOR NOT PLUS MINUS EQUAL INFERIOR SUPERIOR AROBASE
 %token <i> IDENT
 %token <n> CONSTANT
 
 %left ';'
+%right ':'
 
 %left OR XOR
 %left AND
@@ -229,7 +253,7 @@ dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
         | VAR declist ';'		{ $$ = $2; }
 
 declist	: IDENT			{ $$ = make_var($1); }
-		| declist ',' IDENT	{ ($$ = make_var($3))->next = $1; }
+	| declist ',' IDENT	{ ($$ = make_var($3))->next = $1; }
 
 proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6); }
 	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5); }
@@ -237,6 +261,7 @@ proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6); }
 	 	| PROC IDENT stmt END		{ $$ = make_proc(NULL,$3,NULL); }
 
 stmt	: assign
+     	| IDENT ':' stmt	{ $$ = $3; add_label($1,$$); }
 	| stmt ';' stmt	
 		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL); }
 	| DO altlist OD
@@ -256,18 +281,19 @@ altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {($$ = make_altlist(IF,$
 assign	: IDENT ASSIGN expr
 		{ $$ = make_stmt(ASSIGN,$1,$3,NULL,NULL,NULL); }
 
-expr	: IDENT		{ $$ = make_expr(0,0,$1,NULL,NULL); }
-     	| CONSTANT	{ $$ = make_expr(CONSTANT,$1,NULL,NULL,NULL); }
-	| expr XOR expr	{ $$ = make_expr(XOR,0,NULL,$1,$3); }
-	| expr OR expr	{ $$ = make_expr(OR,0,NULL,$1,$3); }
-	| expr AND expr	{ $$ = make_expr(AND,0,NULL,$1,$3); }
-	| NOT expr	{ $$ = make_expr(NOT,0,NULL,$2,NULL); }
-	| expr PLUS expr	{ $$ = make_expr(PLUS,0,NULL,$1,$3); }
-	| expr MINUS expr	{ $$ = make_expr(MINUS,0,NULL,$1,$3); }
-	| expr EQUAL expr	{ $$ = make_expr(EQUAL,0,NULL,$1,$3); }
-	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,0,NULL,$1,$3); }
-	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,0,NULL,$1,$3); }
+expr	: IDENT		{ $$ = make_expr(0,0,$1,NULL,NULL,NULL,NULL); }
+     	| CONSTANT	{ $$ = make_expr(CONSTANT,$1,NULL,NULL,NULL,NULL,NULL); }
+	| expr XOR expr	{ $$ = make_expr(XOR,0,NULL,$1,$3,NULL,NULL); }
+	| expr OR expr	{ $$ = make_expr(OR,0,NULL,$1,$3,NULL,NULL); }
+	| expr AND expr	{ $$ = make_expr(AND,0,NULL,$1,$3,NULL,NULL); }
+	| NOT expr	{ $$ = make_expr(NOT,0,NULL,$2,NULL,NULL,NULL); }
+	| expr PLUS expr	{ $$ = make_expr(PLUS,0,NULL,$1,$3,NULL,NULL); }
+	| expr MINUS expr	{ $$ = make_expr(MINUS,0,NULL,$1,$3,NULL,NULL); }
+	| expr EQUAL expr	{ $$ = make_expr(EQUAL,0,NULL,$1,$3,NULL,NULL); }
+	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,0,NULL,$1,$3,NULL,NULL); }
+	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,0,NULL,$1,$3,NULL,NULL); }
 	| '(' expr ')'		{ $$ = $2; }
+	| IDENT AROBASE IDENT	{ $$ = make_expr(AROBASE,0,NULL,NULL,NULL,$1,$3);}
 
 reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
 	  	| REACH expr		{ $$ = make_reach($2,NULL); }
@@ -310,6 +336,7 @@ void print_expr(expr *e){
 		case INFERIOR: print_expr(e->left); printf("< "); print_expr(e->right);break;
 		case SUPERIOR: print_expr(e->left); printf("> "); print_expr(e->right);break;
 		case CONSTANT: printf("%d ",e->value);break;
+		case AROBASE: printf("%s@%s ",e->procname,e->labelname);break;
 		case 0: printf("%s ",e->varname);break;
 	}
 }
@@ -327,6 +354,7 @@ int has_uninit_var (expr *e, proc* proc){
 		case INFERIOR: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
 		case SUPERIOR: return has_uninit_var(e->left,proc)||has_uninit_var(e->right,proc);
 		case CONSTANT: return 0;
+		case AROBASE: return 0;
 		case 0: return !find_var(e->varname,proc)->initialized;
 	}
 }
