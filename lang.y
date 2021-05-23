@@ -152,12 +152,13 @@ stmt* make_stmt (int type, char *varname, expr *expr,
 	s->left = left;
 	s->right = right;
 	s->altlist = altlist;
+	s->label = NULL;
 	return s;
 }
 
 void add_label (char *labelname, stmt *stmt)
 {
-	if(!stmt) {
+	if(stmt) {
 		label *label = malloc(sizeof(label));
 		label->name = labelname;
 		label->next = stmt->label;
@@ -184,13 +185,14 @@ void make_prog (proc *proc, reach *reach)
 	program->reach = reach;
 }
 
-proc* make_proc (var *locs, stmt *stmt, proc *next)
+proc* make_proc (var *locs, stmt *stmt, proc *next, char *name)
 {
 	proc* pc = malloc(sizeof(proc));
 	pc->locs = locs;
 	pc->stmt = stmt;
 	pc->next = next;
 	pc->start_stmt = stmt;
+	pc->name = name;
 	return pc;
 }
 
@@ -232,8 +234,8 @@ reach* make_reach(expr *expr, reach *next)
 %token <i> IDENT
 %token <n> CONSTANT
 
-%left ';'
 %right ':'
+%left ';'
 
 %left OR XOR
 %left AND
@@ -255,13 +257,13 @@ dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
 declist	: IDENT			{ $$ = make_var($1); }
 	| declist ',' IDENT	{ ($$ = make_var($3))->next = $1; }
 
-proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6); }
-	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5); }
-		| PROC IDENT dec stmt END	{ $$ = make_proc($3,$4,NULL); }
-	 	| PROC IDENT stmt END		{ $$ = make_proc(NULL,$3,NULL); }
+proclist	: PROC IDENT dec stmt END proclist	{ $$ = make_proc($3,$4,$6,$2); }
+	 	| PROC IDENT stmt END proclist		{ $$ = make_proc(NULL,$3,$5,$2); }
+		| PROC IDENT dec stmt END	{ $$ = make_proc($3,$4,NULL,$2); }
+	 	| PROC IDENT stmt END		{ $$ = make_proc(NULL,$3,NULL,$2); }
 
 stmt	: assign
-     	| IDENT ':' stmt	{ $$ = $3; add_label($1,$$); }
+     	| IDENT ':' stmt	{ add_label($1,$3); $$ = $3; }
 	| stmt ';' stmt	
 		{ $$ = make_stmt(';',NULL,NULL,$1,$3,NULL); }
 	| DO altlist OD
@@ -359,6 +361,27 @@ int has_uninit_var (expr *e, proc* proc){
 	}
 }
 
+int search_label (proc *proc,char *labelname)
+{
+	if (!proc || !proc->stmt) return 0;
+	label *label = proc->stmt->label;
+	while(label && strcmp(label->name,labelname)) label = label->next;
+	return (label) ? 1 : 0;
+}
+
+proc* search_proc (char *procname)
+{
+	proc *proc = program->proc;
+	while(proc && strcmp(proc->name,procname)) proc = proc->next;
+	return proc;
+}
+
+int eval_label (char *procname, char *labelname)
+{
+	proc *proc = search_proc(procname);
+	return search_label(proc,labelname);
+}
+
 int eval_step (expr *e, proc* proc)
 {
 	switch (e->type)
@@ -373,6 +396,7 @@ int eval_step (expr *e, proc* proc)
 		case INFERIOR: return eval_step(e->left,proc)<eval_step(e->right,proc);
 		case SUPERIOR: return eval_step(e->left,proc)>eval_step(e->right,proc);
 		case CONSTANT: return e->value;
+		case AROBASE: return eval_label(e->procname,e->labelname);
 		case 0: return find_var(e->varname,proc)->value;
 	}
 }
