@@ -307,7 +307,7 @@ var* find_var (char *s,proc* proc)
 		v=find_var_from_varlist(s,proc->locs);
 	if(!v)
 		v=find_var_from_varlist(s,program_vars);
-	if (!v) { yyerror("undeclared variable"); exit(1); }
+	if (!v) { printf("Error : Undeclared variable \"%s\" in process \"%s\"\n",s, proc->name); exit(1); }
 	return v;
 }
 
