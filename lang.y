@@ -142,6 +142,7 @@ stmt* make_stmt (int type, char *varname, expr *expr,
 	return s;
 }
 
+// Add a label with the name [labelname] to the statement [stmt] and all other sub-statements
 void add_label (char *labelname, stmt *stmt)
 {
 	if(stmt) {
@@ -357,7 +358,7 @@ int search_label (proc *proc,char *labelname)
 	return (label) ? 1 : 0;
 }
 
-// Return the process with the name [procname]
+// Return the process with the name [procname] if such a process exists
 proc* search_proc (char *procname)
 {
 	proc *proc = program->proc;
