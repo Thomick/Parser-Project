@@ -11,7 +11,8 @@
 
 char* fname_src;
 extern int yylineno;
-void yyerror (const char* s) {
+// Modify parsing error message
+void yyerror (const char* s) {	
     fflush(stdout);
     fprintf(stderr, "%s\nat %s:%d\n", s, fname_src, yylineno);
 }
@@ -30,14 +31,14 @@ typedef struct var	// a variable
 
 typedef struct expr	// boolean expression
 {
-	int type;	// TRUE, FALSE, OR, AND, NOT, 0 (variable)
+	int type;	// TRUE, FALSE, OR, AND, NOT, 0 (variable), EQUAL, INFERIOR, SUPERIOR, AROBASE
 	char *varname;
 	struct expr *left, *right;
 	int value;
 	char *procname, *labelname;
 } expr;
 
-typedef struct altlist
+typedef struct altlist	// List of alternatives in a branchment (if or do)
 {
 	int type;  // EXPR, ELSE
 	struct expr* expr;
@@ -45,15 +46,15 @@ typedef struct altlist
 	struct altlist* next;
 } altlist;
 
-typedef struct label
+typedef struct label	// Label for a statement
 {
 	char *name;
-	struct label *next;
+	struct label *next;	// Can be linked
 } label;
 
 typedef struct stmt	// command
 {
-	int type;	// ASSIGN, ';', LOOP, BRANCH, PRINT
+	int type;	// ASSIGN, ';', DO, IF, BREAK, SKIP
 	char *varname;
 	expr *expr;
 	label *label;
@@ -62,30 +63,24 @@ typedef struct stmt	// command
 	struct stmt *next;
 } stmt;
 
-typedef struct stmtlist
-{
-	struct stmt* stmt;
-	struct stmtlist* next;
-} stmtlist;
-
-typedef struct proc
+typedef struct proc	// Process
 {
 	char *name;
-	var *locs;
+	var *locs;	// Local variables
 	stmt *stmt;
-	stmt *start_stmt;
+	stmt *start_stmt;	// Store a pointer to the original statement so the process can be reset
 	struct proc *next;
 } proc;
 
-typedef struct reach
+typedef struct reach	// Specification
 {
 	int reached;
 	expr *expr;
 	struct reach *next;
-	int cnt;
+	int cnt;	// Count the number of times the condition was verified among all executions
 } reach;
 	
-typedef struct prog 
+typedef struct prog 	// Program
 {
 	proc *proc;
 	reach *reach;
@@ -98,22 +93,13 @@ var *program_vars;
 prog *program;
 
 /****************************************************************************/
-/* Functions for settting up data structures at parse time.                 */
-
-
-void print_vars(var *vars){
-	var *v = vars;
-	while (v->next) {
-		printf("%s",v->name);
-		v = v->next;}
-	printf("\n");
-}
+/* Functions for setting up data structures at parse time.                 */
 
 var* make_var (char *s)
 {
 	var *v = malloc(sizeof(var));
 	v->name = s;
-	v->value = 0;	// make variable false initially
+	v->value = 0;
 	v->next = NULL;
 	v->initialized = 0;
 	return v;
@@ -245,11 +231,9 @@ reach* make_reach(expr *expr, reach *next)
 
 %%
  
-prog	: globs proclist reachlist	{  make_prog($2,$3);  }
+prog	: dec proclist reachlist	{ program_vars = $1; make_prog($2,$3);  }
      	| proclist reachlist		{  make_prog($1,$2); } 
-	| globs proclist		{  make_prog($2,NULL);  }
-
-globs : dec {program_vars = $1;}
+	| dec proclist		{ program_vars = $1; make_prog($2,NULL);  }
 
 dec	: VAR declist ';' dec	{ $$ = concat_var($2,$4); }
         | VAR declist ';'		{ $$ = $2; }
@@ -272,12 +256,12 @@ stmt	: assign
 	| BREAK			{$$ = make_stmt(BREAK,NULL,NULL,NULL,NULL,NULL);}
 	| SKIP			{$$ = make_stmt(SKIP,NULL,NULL,NULL,NULL,NULL);}
 
-altlist	: GUARD expr ARROW stmt altlist {($$ = make_altlist(IF,$2,$4))->next = $5;}
+altlist	: GUARD expr ARROW stmt altlist {($$ = make_altlist(IF,$2,$4))->next = $5;}		// List of alternatives after a DO or a IF token
 	| GUARD expr ARROW stmt	{$$ = make_altlist(IF,$2,$4);}
 	| GUARD ELSE ARROW stmt altlist_wo_else {($$ = make_altlist(ELSE,NULL,$4))->next = $5;}
 	| GUARD ELSE ARROW stmt {$$ = make_altlist(ELSE,NULL,$4);}
 
-altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {($$ = make_altlist(IF,$2,$4))->next = $5;}
+altlist_wo_else : GUARD expr ARROW stmt altlist_wo_else {($$ = make_altlist(IF,$2,$4))->next = $5;}	// Allows to only have one ELSE alternative
 		| GUARD expr ARROW stmt {$$ = make_altlist(IF,$2,$4);}
 
 assign	: IDENT ASSIGN expr
@@ -295,7 +279,7 @@ expr	: IDENT		{ $$ = make_expr(0,0,$1,NULL,NULL,NULL,NULL); }
 	| expr INFERIOR expr	{ $$ = make_expr(INFERIOR,0,NULL,$1,$3,NULL,NULL); }
 	| expr SUPERIOR expr	{ $$ = make_expr(SUPERIOR,0,NULL,$1,$3,NULL,NULL); }
 	| '(' expr ')'		{ $$ = $2; }
-	| IDENT AROBASE IDENT	{ $$ = make_expr(AROBASE,0,NULL,NULL,NULL,$1,$3);}
+	| IDENT AROBASE IDENT	{ $$ = make_expr(AROBASE,0,NULL,NULL,NULL,$1,$3);}	// Condition on a label
 
 reachlist	: REACH expr reachlist	{ $$ = make_reach($2,$3); }
 	  	| REACH expr		{ $$ = make_reach($2,NULL); }
@@ -314,6 +298,7 @@ var* find_var_from_varlist (char *s,var* vars)
 	return v;
 }
 
+// Find a variable from its name (global or local for the process proc)
 var* find_var (char *s,proc* proc)
 {
 	var *v = NULL;
@@ -325,6 +310,7 @@ var* find_var (char *s,proc* proc)
 	return v;
 }
 
+// Print an expression
 void print_expr(expr *e){
 	switch (e->type)
 	{
@@ -343,6 +329,7 @@ void print_expr(expr *e){
 	}
 }
 
+// Test if there is an uninitialized variable in the expression
 int has_uninit_var (expr *e, proc* proc){
 	switch (e->type)
 	{
@@ -361,6 +348,7 @@ int has_uninit_var (expr *e, proc* proc){
 	}
 }
 
+// Test if one of the process current statement labels is name [labelname]
 int search_label (proc *proc,char *labelname)
 {
 	if (!proc || !proc->stmt) return 0;
@@ -369,6 +357,7 @@ int search_label (proc *proc,char *labelname)
 	return (label) ? 1 : 0;
 }
 
+// Return the process with the name [procname]
 proc* search_proc (char *procname)
 {
 	proc *proc = program->proc;
@@ -376,12 +365,14 @@ proc* search_proc (char *procname)
 	return proc;
 }
 
+// Test if the process named [procname] is currently at a statement with a label named [labelname]
 int eval_label (char *procname, char *labelname)
 {
 	proc *proc = search_proc(procname);
 	return search_label(proc,labelname);
 }
 
+// One step of the evaluation
 int eval_step (expr *e, proc* proc)
 {
 	switch (e->type)
@@ -401,18 +392,28 @@ int eval_step (expr *e, proc* proc)
 	}
 }
 
+// Evaluate an expression and return its value
+// Return 0 if there is an uninitialized variable in the expression
 int eval (expr *e, proc* proc){
 	if(has_uninit_var(e, proc))
 		return 0;
 	return eval_step(e, proc);
 }
 
-stmt* choose_alt (altlist* l,proc* proc) // TODO
+typedef struct stmtlist // List statements without modifying their next pointer
+{
+	struct stmt* stmt;
+	struct stmtlist* next;
+} stmtlist;
+
+// Choose a statement randomly among the alternatives that verified their conditions
+stmt* choose_alt (altlist* l,proc* proc)
 {
 	stmtlist* list = NULL;
 	int cnt = 0;
 	stmt* elsestmt = NULL;
 	altlist* cur = l;
+	// Identify the else statement and gather possible statements in a list
 	while(cur){
 		if(cur->type == ELSE)
 			elsestmt = cur->stmt;
@@ -425,7 +426,7 @@ stmt* choose_alt (altlist* l,proc* proc) // TODO
 		}
 		cur = cur->next;
 	}
-	if (cnt > 0){
+	if (cnt > 0){ // If there is any verified condition
 		int rnd = rand()%cnt;
 		stmtlist* cur = list;
 		while(cur && rnd > 0){
@@ -434,9 +435,11 @@ stmt* choose_alt (altlist* l,proc* proc) // TODO
 		}
 		return cur->stmt;
 	}
-	return elsestmt;
+	// There is no verified condition
+	return elsestmt;	// Can be a NULL pointer if there is no else statement
 }
 
+// Count the remaining processes
 int count_proc (proc* proc){
 	int cnt = 0;
 	struct proc* cur = proc;
@@ -448,6 +451,7 @@ int count_proc (proc* proc){
 	return cnt;
 }
 
+// Get the n-th process among the remaining processes (there remain statements to be executed)
 proc* get_proc(proc* proc, int n){
 	struct proc* cur = proc;
 	n=n+1;
