@@ -15,3 +15,8 @@ Nous avons également implémenté en partie l'amélioration 1. Cette partie est
 - Choix de l'une des alternatives parmi celles dont la condition est vérifiée avec une probabilité uniforme.
 - L'instruction break met fin au processus si elle se trouve en dehors d'une boucle.
 - Une variable doit être initialisée par un processus avant d'être utilisée. Ainsi toute expression contenant une variable non initialisée sera évaluée à 0. Cela permettait de résoudre le problème des variables initialisées à 0 dans le programme ```lock.prog``` mais c'est moins utile suite au correctif de ce programme reçu par mail.
+
+### Usage :
+```make```
+
+```./lang nom_du_programme nombre_executions nombre_etapes_executees```
